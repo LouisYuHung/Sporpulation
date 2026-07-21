@@ -1,0 +1,55 @@
+services:
+    backend:
+        build:
+            context: ./backend
+            dockerfile: Dockerfile
+        image: sporpulation-backend
+        ports:
+            - "8080:80"
+        environment:
+            APP_ENV: local
+            APP_DEBUG: "true"
+            FRONTEND_URL: http://localhost:5173
+            DB_CONNECTION: mysql
+            DB_HOST: mysql
+            DB_PORT: 3306
+            DB_DATABASE: sporpulation
+            DB_USERNAME: sporpulation
+            DB_PASSWORD: secret
+        depends_on:
+            mysql:
+                condition: service_healthy
+        volumes:
+            - storage_data:/var/www/html/storage
+
+    frontend:
+        build:
+            context: ./frontend
+            dockerfile: Dockerfile
+        image: sporpulation-frontend
+        ports:
+            - "5173:80"
+        depends_on:
+            - backend
+
+    mysql:
+        image: mysql:8.4
+        restart: unless-stopped
+        environment:
+            MYSQL_DATABASE: sporpulation
+            MYSQL_USER: sporpulation
+            MYSQL_PASSWORD: secret
+            MYSQL_ROOT_PASSWORD: root
+        ports:
+            - "3306:3306"
+        volumes:
+            - mysql_data:/var/lib/mysql
+        healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+            interval: 5s
+            timeout: 5s
+            retries: 10
+
+volumes:
+    mysql_data:
+    storage_data:
