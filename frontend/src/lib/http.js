@@ -10,6 +10,7 @@ http.interceptors.request.use((config) => {
   if (auth.token) {
     config.headers.Authorization = `Bearer ${auth.token}`
   }
+  config.headers['Accept-Language'] = localStorage.getItem('locale') || 'zh-TW'
   return config
 })
 

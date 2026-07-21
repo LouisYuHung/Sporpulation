@@ -1,0 +1,25 @@
+<?php
+
+namespace App\Http\Resources;
+
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+/**
+ * @mixin \App\Models\District
+ */
+class DistrictResource extends JsonResource
+{
+    /**
+     * @return array<string, mixed>
+     */
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' => $this->id,
+            'name' => $this->name,
+            'postal_code' => $this->whenLoaded('postalCode', fn () => $this->postalCode?->code),
+            'city' => new CityResource($this->whenLoaded('city')),
+        ];
+    }
+}
