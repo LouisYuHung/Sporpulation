@@ -16,8 +16,11 @@ class LineAuthController extends Controller
      */
     public function redirect(): JsonResponse
     {
+        // LINE requires a `state` param even though we don't validate it
+        // (stateless mode skips CSRF/session-based state verification).
         $url = Socialite::driver('line')
             ->stateless()
+            ->with(['state' => Str::random(40)])
             ->redirect()
             ->getTargetUrl();
 
