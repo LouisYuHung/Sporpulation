@@ -37,6 +37,11 @@ RUN apk add --no-cache \
         opcache \
         bcmath
 
+RUN apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && apk del .build-deps
+
 RUN { \
         echo 'opcache.enable=1'; \
         echo 'opcache.memory_consumption=256'; \
