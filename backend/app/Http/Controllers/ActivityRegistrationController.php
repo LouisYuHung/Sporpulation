@@ -43,7 +43,7 @@ class ActivityRegistrationController extends Controller
      * Claim a seat.
      *
      * Idempotent: replaying the request returns the same activity with the
-     * same seat count, because the registration itself is keyed on
+     * same joined_count, because the registration itself is keyed on
      * (activity_id, user_id). Responds 409 when the activity is full or has
      * already started.
      */
@@ -66,7 +66,7 @@ class ActivityRegistrationController extends Controller
     }
 
     /**
-     * The activity as it now stands, so the client can refresh the seat count
+     * The activity as it now stands, so the client can refresh joined_count
      * and the caller's own status straight from the write response.
      *
      * Re-read rather than trusted from memory: other people join and cancel

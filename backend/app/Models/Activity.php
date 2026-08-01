@@ -27,6 +27,15 @@ use Illuminate\Support\Facades\DB;
     'ends_at',
     'capacity',
 ])]
+/**
+ * A "seat" is one unit of `joined_count`, nothing more.
+ *
+ * The two words are deliberate and not interchangeable: `joined_count` names
+ * the column and the API field, while "seat" is the domain word used in method
+ * names and prose (claimSeat, releaseSeat, remainingSeats). Anything a client
+ * or a query sees is joined_count; anything describing the act of taking or
+ * giving one back is a seat.
+ */
 class Activity extends Model
 {
     /** @use HasFactory<ActivityFactory> */
@@ -44,7 +53,7 @@ class Activity extends Model
 
     /**
      * joined_count also defaults to 0 in the schema; repeating it here means a
-     * newly created activity reports a seat count without a re-read.
+     * newly created activity reports its seats taken without a re-read.
      *
      * @var array<string, mixed>
      */
@@ -90,8 +99,8 @@ class Activity extends Model
      * last seat is taken and ActivityClosedException once the activity has
      * started.
      *
-     * The seat count is changed in the database, not on this instance:
-     * refresh() before reading joined_count.
+     * joined_count is changed in the database, not on this instance:
+     * refresh() before reading it.
      */
     public function join(User $user): ActivityRegistration
     {
@@ -272,6 +281,9 @@ class Activity extends Model
      */
     private function lockSeats(): void
     {
+        // The row itself is not wanted - only the SELECT ... FOR UPDATE it
+        // emits, whose lock is held by the surrounding transaction until it
+        // commits. Discarding the result is the point, not an oversight.
         static::whereKey($this->id)->lockForUpdate()->first();
     }
 
