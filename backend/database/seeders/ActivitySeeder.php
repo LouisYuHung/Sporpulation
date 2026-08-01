@@ -11,6 +11,8 @@ use Illuminate\Database\Seeder;
 /**
  * 示範用的活動資料，讓全新安裝時列表與報名畫面有東西可以顯示。會在地區與運動
  * seeder 之後執行。
+ *
+ * 僅供本地開發使用，不會在正式環境執行，詳見 DatabaseSeeder。
  */
 class ActivitySeeder extends Seeder
 {
@@ -48,16 +50,21 @@ class ActivitySeeder extends Seeder
 
             $startsAt = now()->addDays($activity['in_days'])->setTime($activity['hour'], 0);
 
-            Activity::create([
-                'host_id' => $host->id,
-                'sport_id' => $sport->id,
-                'district_id' => $districts[$index % $districts->count()]->id,
-                'title' => $activity['title'],
-                'location' => $activity['location'],
-                'starts_at' => $startsAt,
-                'ends_at' => $startsAt->copy()->addHours(2),
-                'capacity' => $activity['capacity'],
-            ]);
+            // 以「主辦人 + 標題」當識別鍵，重跑只會把時間往後推，不會多出一批重複活動。
+            Activity::updateOrCreate(
+                [
+                    'host_id' => $host->id,
+                    'title' => $activity['title'],
+                ],
+                [
+                    'sport_id' => $sport->id,
+                    'district_id' => $districts[$index % $districts->count()]->id,
+                    'location' => $activity['location'],
+                    'starts_at' => $startsAt,
+                    'ends_at' => $startsAt->copy()->addHours(2),
+                    'capacity' => $activity['capacity'],
+                ],
+            );
         }
     }
 }

@@ -42,13 +42,19 @@ class CitySeeder extends Seeder
 
     /**
      * 執行資料填充。
+     *
+     * 以中文名稱當作識別鍵，重複執行只會更新既有資料，不會產生重複的縣市。
      */
     public function run(): void
     {
+        $existing = City::all()->keyBy(
+            fn (City $city) => $city->getTranslation('name', 'zh-TW')
+        );
+
         foreach (self::CITIES as $zh => $en) {
-            City::create([
-                'name' => ['zh-TW' => $zh, 'en' => $en],
-            ]);
+            $city = $existing->get($zh) ?? new City;
+            $city->setTranslations('name', ['zh-TW' => $zh, 'en' => $en]);
+            $city->save();
         }
     }
 }

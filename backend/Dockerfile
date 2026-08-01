@@ -26,10 +26,12 @@ RUN apk add --no-cache \
         libzip-dev \
         icu-dev \
         oniguruma-dev \
+        postgresql-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j"$(nproc)" \
         pdo_mysql \
         mysqli \
+        pdo_pgsql \
         gd \
         zip \
         intl \

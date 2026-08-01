@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\City;
+use App\Models\PostalCode;
 use Illuminate\Database\Seeder;
 
 class PostalCodeSeeder extends Seeder
@@ -436,6 +437,8 @@ class PostalCodeSeeder extends Seeder
 
     /**
      * 執行資料填充。
+     *
+     * 重複執行只會更新既有的郵遞區號，不會產生重複資料。
      */
     public function run(): void
     {
@@ -452,7 +455,11 @@ class PostalCodeSeeder extends Seeder
                     continue;
                 }
 
-                $district->postalCode()->create(['code' => $codes[$districtZh]]);
+                // postal_codes.district_id 是唯一鍵，用它當識別鍵讓重複執行不會出錯。
+                PostalCode::updateOrCreate(
+                    ['district_id' => $district->id],
+                    ['code' => $codes[$districtZh]],
+                );
             }
         }
     }

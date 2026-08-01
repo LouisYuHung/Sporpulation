@@ -49,13 +49,19 @@ class SportSeeder extends Seeder
 
     /**
      * 執行資料填充。
+     *
+     * 以中文名稱當作識別鍵，重複執行只會更新既有資料，不會產生重複的運動。
      */
     public function run(): void
     {
+        $existing = Sport::all()->keyBy(
+            fn (Sport $sport) => $sport->getTranslation('name', 'zh-TW')
+        );
+
         foreach (self::SPORTS as $zh => $en) {
-            Sport::create([
-                'name' => ['zh-TW' => $zh, 'en' => $en],
-            ]);
+            $sport = $existing->get($zh) ?? new Sport;
+            $sport->setTranslations('name', ['zh-TW' => $zh, 'en' => $en]);
+            $sport->save();
         }
     }
 }

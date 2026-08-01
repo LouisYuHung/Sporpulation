@@ -431,6 +431,8 @@ class DistrictSeeder extends Seeder
 
     /**
      * 執行資料填充。
+     *
+     * 以「縣市 + 中文名稱」當作識別鍵，重複執行只會更新既有資料，不會產生重複的行政區。
      */
     public function run(): void
     {
@@ -438,14 +440,19 @@ class DistrictSeeder extends Seeder
             $city->getTranslation('name', 'zh-TW') => $city->id,
         ]);
 
+        $existing = District::all()
+            ->groupBy('city_id')
+            ->map(fn ($districts) => $districts->keyBy(
+                fn (District $district) => $district->getTranslation('name', 'zh-TW')
+            ));
+
         foreach (self::DISTRICTS as $cityZh => $districts) {
             $cityId = $cityIds[$cityZh];
 
             foreach ($districts as $zh => $en) {
-                District::create([
-                    'city_id' => $cityId,
-                    'name' => ['zh-TW' => $zh, 'en' => $en],
-                ]);
+                $district = $existing->get($cityId)?->get($zh) ?? new District(['city_id' => $cityId]);
+                $district->setTranslations('name', ['zh-TW' => $zh, 'en' => $en]);
+                $district->save();
             }
         }
     }
