@@ -1,12 +1,20 @@
 #!/usr/bin/env bash
 set -e
 
-if [ ! -f .env ]; then
-    cp .env.example .env
-fi
+# 雲端平台（Render 等）會直接注入環境變數，這時候不需要 .env 檔。照樣複製
+# .env.example 反而危險：Laravel 讀 .env 是 immutable 模式，平台有設的變數會贏，
+# 但「漏設」的變數就會悄悄拿到本機用的預設值 —— 例如 REDIS_HOST=127.0.0.1，
+# 結果就是連線被拒。同時也避免每次容器啟動都重新產生一把 APP_KEY。
+#
+# 以 APP_KEY 是否由環境提供，來判斷是不是平台注入的情境。
+if [ -z "${APP_KEY:-}" ]; then
+    if [ ! -f .env ]; then
+        cp .env.example .env
+    fi
 
-if ! grep -q "^APP_KEY=base64" .env; then
-    php artisan key:generate --force
+    if ! grep -q "^APP_KEY=base64" .env; then
+        php artisan key:generate --force
+    fi
 fi
 
 php artisan config:clear
