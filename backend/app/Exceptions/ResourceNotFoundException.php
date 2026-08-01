@@ -5,13 +5,11 @@ namespace App\Exceptions;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
- * A 404 raised deliberately by the application, carrying a message that is
- * already localised.
+ * 由應用程式刻意拋出的 404，並帶有已在地化的訊息。
  *
- * Framework-generated NotFoundHttpExceptions (unmatched routes, failed route
- * model binding) carry internal English text, so the exception handler
- * replaces those with a generic localised message. Throwing this subclass
- * instead marks the message as ours and safe to show.
+ * 框架自行產生的 NotFoundHttpException（路由未匹配、route model binding 失敗）
+ * 帶的是內部英文文字，因此例外處理器會把那些訊息換成通用的在地化訊息。改為拋出
+ * 這個子類別，就等於標示這則訊息出自我們自己、可以安全顯示。
  */
 class ResourceNotFoundException extends NotFoundHttpException
 {

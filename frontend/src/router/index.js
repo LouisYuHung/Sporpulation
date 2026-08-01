@@ -35,8 +35,8 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
 
-  // A hard refresh onto a guarded route arrives before the stored token has
-  // been checked, so wait for that once rather than bouncing to /login.
+  // 直接重新整理進入受保護的路由時，會早於已儲存 token 的檢查完成，因此在這裡
+  // 等它一次，而不是直接把使用者踢回 /login。
   await auth.restore()
 
   if (to.meta.requiresAuth && !auth.isAuthenticated) {

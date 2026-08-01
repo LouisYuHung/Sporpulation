@@ -19,7 +19,7 @@ const submitting = ref(false)
 const error = ref('')
 const notice = ref('')
 
-// Held between attempts so a retry of an unanswered request reuses its key.
+// 在多次嘗試之間保留下來，讓尚未收到回應的請求在重試時沿用同一把 key。
 const pendingKey = ref(null)
 
 const joined = computed(() => activity.value?.my_registration?.status?.value === 1)
@@ -27,7 +27,7 @@ const filledPercent = computed(() =>
   activity.value?.capacity ? (activity.value.joined_count / activity.value.capacity) * 100 : 0,
 )
 
-// Full is only a blocker for someone who is not already in.
+// 額滿只會擋住尚未報名的人。
 const canJoin = computed(
   () => activity.value?.is_open && !joined.value && !activity.value?.is_full,
 )
@@ -65,13 +65,13 @@ async function cancel() {
 }
 
 /**
- * Both writes return the activity as it now stands, so the seat count and the
- * caller's own status refresh straight from the response - no reload needed.
+ * 這兩個寫入操作都會回傳活動的當前狀態，因此名額數與呼叫者自己的狀態可以直接由
+ * 回應更新 - 不需要重新載入。
  */
 async function submit(request, successMessage) {
-  // One key per intent. A request that never got an answer keeps its key, so
-  // pressing the button again is recognised as the same attempt rather than a
-  // second one; anything the server answered is settled and starts fresh.
+  // 一個意圖對應一把 key。沒有收到回應的請求會保留它的 key，因此再按一次按鈕
+  // 會被認定為同一次嘗試而非第二次；只要伺服器已經回應過，就代表結果已定，下次
+  // 會重新開始。
   pendingKey.value ??= newIdempotencyKey()
 
   submitting.value = true
@@ -90,8 +90,8 @@ async function submit(request, successMessage) {
 
     const code = conflictCode(e)
 
-    // A 409 means the world moved on while the page sat here, so show the
-    // reason and refresh to whatever is true now.
+    // 409 代表在這個頁面停留期間狀況已經改變，因此顯示原因並更新成目前的實際
+    // 狀態。
     if (code) {
       error.value = errorMessage(e)
       await load()

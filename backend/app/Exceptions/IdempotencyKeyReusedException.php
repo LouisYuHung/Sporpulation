@@ -3,9 +3,8 @@
 namespace App\Exceptions;
 
 /**
- * The key was already used for a different request. Replaying the stored
- * response would answer a question the client did not ask, so this is refused
- * outright - it always means a bug in how the client generates keys.
+ * 這把 key 已經被用在另一個不同的請求上。重播已儲存的回應等於回答了用戶端沒問過
+ * 的問題，因此直接拒絕 - 這種情況一定代表用戶端產生 key 的方式有錯。
  */
 class IdempotencyKeyReusedException extends ConflictException
 {

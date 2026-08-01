@@ -12,7 +12,7 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 class UserSportController extends Controller
 {
     /**
-     * The sports the authenticated user plays.
+     * 已登入使用者從事的運動。
      */
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -20,8 +20,8 @@ class UserSportController extends Controller
     }
 
     /**
-     * Add a sport, optionally with a self-rated level.
-     * Idempotent: re-adding a removed sport restores it.
+     * 新增一項運動，可一併帶入自評等級。
+     * 具冪等性：重新加入曾移除的運動會將它還原。
      */
     public function store(Request $request): JsonResponse
     {
@@ -36,8 +36,8 @@ class UserSportController extends Controller
     }
 
     /**
-     * Update the self-rated level for a sport the user already plays.
-     * Pass level: null to clear the rating.
+     * 更新使用者已標記運動的自評等級。
+     * 傳入 level: null 可清除等級。
      */
     public function update(Request $request, Sport $sport): AnonymousResourceCollection
     {
@@ -55,7 +55,7 @@ class UserSportController extends Controller
     }
 
     /**
-     * Remove a sport. Idempotent: removing one not played is a no-op.
+     * 移除一項運動。具冪等性：移除未標記的運動不會有任何作用。
      */
     public function destroy(Request $request, Sport $sport): AnonymousResourceCollection
     {

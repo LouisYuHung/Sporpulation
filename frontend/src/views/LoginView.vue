@@ -49,8 +49,7 @@ async function submit() {
   } catch (error) {
     errors.value = fieldErrors(error)
 
-    // Only surface a banner when nothing landed on a field, so the same
-    // problem is never reported twice.
+    // 只有在沒有任何錯誤落在欄位上時才顯示橫幅提示，避免同一個問題被回報兩次。
     if (Object.keys(errors.value).length === 0) {
       generalError.value = errorMessage(error)
     }

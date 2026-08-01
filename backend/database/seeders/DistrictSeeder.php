@@ -9,8 +9,8 @@ use Illuminate\Database\Seeder;
 class DistrictSeeder extends Seeder
 {
     /**
-     * Districts grouped by city (zh-TW). Values are zh-TW => en, using the
-     * MOI "international customary" column (Tamsui, Lukang, etc.).
+     * 依縣市（zh-TW）分組的行政區。值為 zh-TW => en，採用內政部的「國際慣用名」
+     * 欄位（Tamsui、Lukang 等）。
      *
      * @var array<string, array<string, string>>
      */
@@ -430,7 +430,7 @@ class DistrictSeeder extends Seeder
     ];
 
     /**
-     * Run the database seeds.
+     * 執行資料填充。
      */
     public function run(): void
     {

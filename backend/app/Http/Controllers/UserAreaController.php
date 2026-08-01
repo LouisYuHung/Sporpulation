@@ -11,7 +11,7 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 class UserAreaController extends Controller
 {
     /**
-     * The areas the authenticated user has tagged.
+     * 已登入使用者標記的常用地區。
      */
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -19,7 +19,7 @@ class UserAreaController extends Controller
     }
 
     /**
-     * Tag an area. Idempotent: re-adding a removed area restores it.
+     * 標記一個常用地區。具冪等性：重新加入曾移除的地區會將它還原。
      */
     public function store(Request $request): JsonResponse
     {
@@ -33,7 +33,7 @@ class UserAreaController extends Controller
     }
 
     /**
-     * Untag an area. Idempotent: removing an untagged area is a no-op.
+     * 取消標記一個常用地區。具冪等性：移除未標記的地區不會有任何作用。
      */
     public function destroy(Request $request, District $district): AnonymousResourceCollection
     {
@@ -43,7 +43,7 @@ class UserAreaController extends Controller
     }
 
     /**
-     * The user's current areas, each with its city.
+     * 使用者目前的常用地區，每筆都附帶所屬縣市。
      */
     private function areas(Request $request): AnonymousResourceCollection
     {

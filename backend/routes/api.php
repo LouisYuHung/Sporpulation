@@ -25,8 +25,7 @@ Route::prefix('auth')->group(function () {
         Route::get('/callback', [LineAuthController::class, 'callback']);
     });
 
-    // Throttled by hand: these are the only unauthenticated endpoints where
-    // guessing repeatedly pays off.
+    // 手動加上流量限制：這是唯一一組「反覆猜測有利可圖」的未驗證端點。
     Route::middleware('throttle:10,1')->group(function () {
         Route::post('/register', [EmailAuthController::class, 'register']);
         Route::post('/login', [EmailAuthController::class, 'login']);
@@ -38,20 +37,19 @@ Route::prefix('auth')->group(function () {
 Route::get('/regions', [RegionController::class, 'index']);
 Route::get('/sports', [SportController::class, 'index']);
 
-// Browsable without logging in; joining is not.
+// 未登入也能瀏覽；但報名不行。
 Route::get('/activities', [ActivityController::class, 'index']);
 Route::get('/activities/{activity}', [ActivityController::class, 'show']);
 
 Route::middleware('auth:sanctum')->group(function () {
-    // `idempotent` honours an Idempotency-Key header when the client sends
-    // one, replaying the first response instead of acting twice. Creating an
-    // activity has no natural key at all, so a retried request would otherwise
-    // leave a duplicate behind.
+    // 當用戶端有送 Idempotency-Key 標頭時，`idempotent` 會遵循它，重播第一次的
+    // 回應而不是執行第二次。建立活動完全沒有天然的唯一鍵，否則重試的請求就會留下
+    // 一筆重複資料。
     Route::middleware('idempotent')->group(function () {
         Route::post('/activities', [ActivityController::class, 'store']);
 
-        // Singular from the caller's point of view: they have at most one
-        // registration per activity, so there is no id in the path.
+        // 從呼叫者的角度看是單數：每個活動他最多只有一筆報名，因此路徑中不需要
+        // 帶 id。
         Route::prefix('activities/{activity}/registration')->group(function () {
             Route::post('/', [ActivityRegistrationController::class, 'store']);
             Route::delete('/', [ActivityRegistrationController::class, 'destroy']);

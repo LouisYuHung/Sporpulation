@@ -22,8 +22,8 @@ class UserResource extends JsonResource
             'avatar' => $this->avatar,
             'email' => $this->email,
 
-            // Enums are exposed as {value, label} so the client never has to
-            // map a raw int to display text. Null means "not specified".
+            // 列舉一律以 {value, label} 的形式輸出，讓用戶端完全不需要自行把原始
+            // 整數對應成顯示文字。null 代表「未指定」。
             'sex' => $this->sex === null ? null : [
                 'value' => $this->sex->value,
                 'label' => $this->sex->label(),

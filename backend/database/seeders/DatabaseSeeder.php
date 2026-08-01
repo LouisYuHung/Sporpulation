@@ -11,7 +11,7 @@ class DatabaseSeeder extends Seeder
     use WithoutModelEvents;
 
     /**
-     * Seed the application's database.
+     * 填充應用程式的資料庫。
      */
     public function run(): void
     {
@@ -29,7 +29,7 @@ class DatabaseSeeder extends Seeder
             'email' => 'test@example.com',
         ]);
 
-        // After the user, which it uses as the host.
+        // 放在使用者之後，因為它會拿那位使用者當主辦人。
         $this->call(ActivitySeeder::class);
     }
 }

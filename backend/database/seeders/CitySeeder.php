@@ -8,10 +8,10 @@ use Illuminate\Database\Seeder;
 class CitySeeder extends Seeder
 {
     /**
-     * The 22 Taiwan cities/counties.
+     * 臺灣 22 個縣市。
      *
-     * English names use the MOI "international customary" column
-     * (國際慣用名), e.g. Taipei / Kaohsiung / Hsinchu / Keelung.
+     * 英文名稱採用內政部的「國際慣用名」欄位，例如 Taipei / Kaohsiung /
+     * Hsinchu / Keelung。
      *
      * @var array<string, string> zh-TW => en
      */
@@ -41,7 +41,7 @@ class CitySeeder extends Seeder
     ];
 
     /**
-     * Run the database seeds.
+     * 執行資料填充。
      */
     public function run(): void
     {

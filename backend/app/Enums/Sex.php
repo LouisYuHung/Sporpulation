@@ -3,8 +3,8 @@
 namespace App\Enums;
 
 /**
- * Backed by tinyint on users.sex. A null column means "not specified",
- * so there is deliberately no case for it.
+ * 對應 users.sex 的 tinyint 欄位。欄位為 null 代表「未指定」，因此刻意不為它
+ * 定義任何 case。
  */
 enum Sex: int
 {
@@ -13,7 +13,7 @@ enum Sex: int
     case Other = 3;
 
     /**
-     * Display name in the current locale (set by the SetLocale middleware).
+     * 依目前語系（由 SetLocale middleware 設定）取得顯示名稱。
      */
     public function label(): string
     {
@@ -21,7 +21,7 @@ enum Sex: int
     }
 
     /**
-     * Value/label pairs for a form dropdown.
+     * 供表單下拉選單使用的 value/label 配對。
      *
      * @return list<array{value: int, label: string}>
      */

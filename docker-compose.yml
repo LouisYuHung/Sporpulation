@@ -35,9 +35,9 @@ services:
             context: ./frontend
             dockerfile: Dockerfile
             args:
-                # Baked into the bundle at build time, and .env is excluded by
-                # .dockerignore - without this the built app has no API base
-                # URL and every call falls back to its own origin.
+                # 會在建置時直接打包進 bundle，而 .env 已被 .dockerignore 排除 -
+                # 少了這個，建置出來的應用程式就沒有 API base URL，所有呼叫都會退回
+                # 打到自己的來源網域。
                 VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080/api}
         image: sporpulation-frontend
         ports:

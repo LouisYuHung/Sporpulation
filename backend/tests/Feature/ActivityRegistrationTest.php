@@ -41,8 +41,8 @@ class ActivityRegistrationTest extends TestCase
         $activity = Activity::factory()->withCapacity(4)->create();
         $user = User::factory()->create();
 
-        // The second call stands in for a double-tapped button or a client
-        // retrying after a timeout: same outcome, same seat.
+        // 第二次呼叫模擬按鈕被連點兩下，或用戶端在逾時後重試：結果相同、名額也
+        // 相同。
         $first = $this->actingAs($user)->postJson("/api/activities/{$activity->id}/registration");
         $second = $this->actingAs($user)->postJson("/api/activities/{$activity->id}/registration");
 
@@ -105,8 +105,7 @@ class ActivityRegistrationTest extends TestCase
             ->assertJsonPath('data.remaining_seats', 2)
             ->assertJsonPath('data.my_registration.status.value', RegistrationStatus::Cancelled->value);
 
-        // The row stays, so the history survives and the unique index still
-        // recognises the user if they come back.
+        // 資料列會保留，因此歷程得以留存，唯一索引在使用者回頭時也仍認得他。
         $this->assertDatabaseCount('activity_registrations', 1);
     }
 

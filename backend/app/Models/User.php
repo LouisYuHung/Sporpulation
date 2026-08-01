@@ -23,10 +23,9 @@ class User extends Authenticatable
     use HasApiTokens, HasFactory, Notifiable;
 
     /**
-     * Districts the user has tagged as areas they frequent.
+     * 使用者標記為常出沒地區的行政區。
      *
-     * Only the district is stored; the city comes from districts.city_id
-     * (eager load with `areas.city`).
+     * 只會儲存行政區；縣市來自 districts.city_id（以 `areas.city` 預先載入）。
      */
     public function areas(): BelongsToMany
     {
@@ -36,10 +35,10 @@ class User extends Authenticatable
     }
 
     /**
-     * Tag a district as an area the user frequents.
+     * 將一個行政區標記為使用者的常用地區。
      *
-     * Restores a previously removed tag instead of inserting, because the
-     * unique(user_id, district_id) index also covers soft-deleted rows.
+     * 若先前曾移除過，會改為還原該筆標記而非新增，因為
+     * unique(user_id, district_id) 索引同樣涵蓋軟刪除的資料列。
      */
     public function addArea(int $districtId): UserAreaTag
     {
@@ -63,7 +62,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Untag an area. Soft deletes so the row can be restored on re-add.
+     * 取消一個常用地區的標記。採軟刪除，以便重新加入時可以還原該資料列。
      */
     public function removeArea(int $districtId): void
     {
@@ -73,7 +72,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Sports the user plays.
+     * 使用者從事的運動。
      */
     public function sports(): BelongsToMany
     {
@@ -83,11 +82,11 @@ class User extends Authenticatable
     }
 
     /**
-     * Add a sport the user plays, optionally with a self-rated level (1-10).
+     * 新增一項使用者從事的運動，可一併帶入自評等級（1-10）。
      *
-     * Restores a previously removed row instead of inserting, because the
-     * unique(user_id, sport_id) index also covers soft-deleted rows. A null
-     * $level leaves any existing rating untouched.
+     * 若先前曾移除過，會改為還原該筆資料列而非新增，因為
+     * unique(user_id, sport_id) 索引同樣涵蓋軟刪除的資料列。$level 為 null 時，
+     * 既有的自評等級維持不變。
      */
     public function addSport(int $sportId, ?int $level = null): UserSport
     {
@@ -116,8 +115,8 @@ class User extends Authenticatable
     }
 
     /**
-     * Set (or clear, with null) the self-rated level for a sport the user
-     * already plays. Returns null when the sport is not tagged.
+     * 設定使用者已標記運動的自評等級（傳入 null 則清除）。若該運動未被標記，
+     * 回傳 null。
      */
     public function setSportLevel(int $sportId, ?int $level): ?UserSport
     {
@@ -131,7 +130,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Remove a sport. Soft deletes so the row can be restored on re-add.
+     * 移除一項運動。採軟刪除，以便重新加入時可以還原該資料列。
      */
     public function removeSport(int $sportId): void
     {
@@ -141,7 +140,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Activities the user organises.
+     * 使用者主辦的活動。
      */
     public function hostedActivities(): HasMany
     {
@@ -149,7 +148,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Every registration the user has made, cancelled ones included.
+     * 使用者所有的報名紀錄，包含已取消的。
      */
     public function registrations(): HasMany
     {
@@ -157,7 +156,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Activities the user currently holds a seat in.
+     * 使用者目前持有名額的活動。
      */
     public function activities(): BelongsToMany
     {
@@ -167,7 +166,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Get the attributes that should be cast.
+     * 取得需要進行型別轉換的屬性。
      *
      * @return array<string, string>
      */

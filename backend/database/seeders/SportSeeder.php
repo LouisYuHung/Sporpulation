@@ -48,7 +48,7 @@ class SportSeeder extends Seeder
     ];
 
     /**
-     * Run the database seeds.
+     * 執行資料填充。
      */
     public function run(): void
     {

@@ -19,7 +19,7 @@ async function loadActivities() {
 
   try {
     const { data } = await http.get('/activities', {
-      // Blank means "no filter"; sending an empty string would fail validation.
+      // 空白代表「不篩選」；送出空字串會無法通過驗證。
       params: {
         sport_id: filters.sport_id || undefined,
         district_id: filters.district_id || undefined,
@@ -46,7 +46,7 @@ async function loadFilterOptions() {
 onMounted(() => {
   loadActivities()
   loadFilterOptions().catch(() => {
-    // Filters are a convenience; the listing still works without them.
+    // 篩選只是輔助功能；就算沒有它，列表照樣能運作。
   })
 })
 

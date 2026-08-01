@@ -3,7 +3,7 @@
 namespace App\Exceptions;
 
 /**
- * The activity has already started, so it no longer takes registrations.
+ * 活動已經開始，因此不再接受報名。
  */
 class ActivityClosedException extends ConflictException
 {

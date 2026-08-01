@@ -12,8 +12,7 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 class ActivityController extends Controller
 {
     /**
-     * Upcoming activities, soonest first, optionally narrowed by sport or
-     * district.
+     * 即將開始的活動，依開始時間由近到遠排序，可另以運動或行政區篩選。
      */
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -41,8 +40,7 @@ class ActivityController extends Controller
     }
 
     /**
-     * Organise an activity. The host is not registered automatically; they
-     * join like anyone else if they intend to play.
+     * 建立一個活動。主辦人不會被自動報名；若他也想下場，就跟其他人一樣自行報名。
      */
     public function store(Request $request): JsonResponse
     {
@@ -68,11 +66,11 @@ class ActivityController extends Controller
     }
 
     /**
-     * Relations every activity payload carries.
+     * 每份活動 payload 都會帶上的關聯。
      *
-     * `registrations` is constrained to the caller so the payload can report
-     * their own registration status without a second request. Guests get
-     * nothing, and `my_registration` stays absent from the response.
+     * `registrations` 會限縮成只查呼叫者自己的紀錄，讓 payload 不必再發第二個請求
+     * 就能回報他自己的報名狀態。訪客則什麼都拿不到，回應中也不會出現
+     * `my_registration`。
      *
      * @return array<int|string, mixed>
      */

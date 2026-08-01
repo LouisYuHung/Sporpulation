@@ -9,13 +9,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * A remembered write, so retrying it replays the first answer instead of
- * acting twice.
+ * 被記錄下來的寫入操作，讓重試時重播第一次的回應，而不是執行第二次。
  *
- * Kept in the database rather than the cache on purpose: the cache is cleared
- * routinely (`cache:clear`, eviction under memory pressure) and losing these
- * records silently removes the protection. Creating an activity has no natural
- * unique key to fall back on, so this table is its only guarantee.
+ * 刻意存在資料庫而非快取：快取會被例行清除（`cache:clear`、記憶體不足時被驅逐），
+ * 而這些紀錄一旦遺失，保護就會無聲無息地消失。建立活動沒有天然的唯一鍵可以退而
+ * 求其次，因此這張資料表是它唯一的保證。
  */
 #[Fillable(['user_id', 'key_hash', 'fingerprint', 'status', 'body', 'content_type', 'expires_at'])]
 class IdempotencyKey extends Model
@@ -25,7 +23,7 @@ class IdempotencyKey extends Model
     protected $table = 'idempotency_keys';
 
     /**
-     * A record with no status is a claim whose request has not finished.
+     * 沒有 status 的紀錄，代表這是一個請求尚未完成的佔位。
      */
     public function isInProgress(): bool
     {
@@ -43,8 +41,8 @@ class IdempotencyKey extends Model
     }
 
     /**
-     * Expired records carry no meaning, so they are deleted wholesale rather
-     * than soft deleted. Scheduled in routes/console.php.
+     * 過期的紀錄已無任何意義，因此直接整批刪除而不採軟刪除。排程設定於
+     * routes/console.php。
      *
      * @return Builder<self>
      */

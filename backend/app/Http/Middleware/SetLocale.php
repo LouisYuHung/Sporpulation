@@ -9,14 +9,14 @@ use Symfony\Component\HttpFoundation\Response;
 class SetLocale
 {
     /**
-     * Supported application locales.
+     * 應用程式支援的語系。
      *
      * @var list<string>
      */
     protected array $supported = ['zh-TW', 'en'];
 
     /**
-     * Handle an incoming request.
+     * 處理傳入的請求。
      *
      * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
      */
@@ -28,12 +28,11 @@ class SetLocale
     }
 
     /**
-     * Pick the best supported locale for the request.
+     * 為這個請求挑選最合適的支援語系。
      *
-     * Symfony normalises Accept-Language tags to underscores ("zh-TW" becomes
-     * "zh_TW"), so matching is done on a normalised key and mapped back to the
-     * hyphenated tag that translations are actually stored under. Falls back to
-     * the first supported locale when the header matches nothing.
+     * Symfony 會把 Accept-Language 標籤正規化成底線形式（「zh-TW」會變成
+     * 「zh_TW」），因此比對時使用正規化後的鍵，再對應回翻譯檔實際採用的連字號
+     * 標籤。當標頭比對不到任何語系時，退回第一個支援的語系。
      */
     private function resolve(Request $request): string
     {

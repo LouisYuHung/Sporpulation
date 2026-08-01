@@ -13,7 +13,7 @@ class UserAreaTag extends Model
     use SoftDeletes;
 
     /**
-     * The table only tracks created_at, so updated_at is disabled.
+     * 這張資料表只記錄 created_at，因此停用 updated_at。
      */
     public const UPDATED_AT = null;
 

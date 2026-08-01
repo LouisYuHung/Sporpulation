@@ -29,7 +29,7 @@ class IdempotencyKeyTest extends TestCase
         $first->assertCreated();
         $second->assertCreated();
 
-        // Byte for byte the same answer, and flagged so the client can tell.
+        // 逐位元組完全相同的回應，並加上標記讓用戶端能分辨。
         $this->assertSame($first->getContent(), $second->getContent());
         $this->assertNull($first->headers->get('Idempotent-Replay'));
         $this->assertSame('true', $second->headers->get('Idempotent-Replay'));
@@ -46,9 +46,8 @@ class IdempotencyKeyTest extends TestCase
 
         $this->join($activity, $user);
 
-        // Someone else takes the remaining seats between the two attempts. A
-        // replay answers from the store, so the retry is not re-evaluated
-        // against the new state - which is the whole point of a stored result.
+        // 在兩次嘗試之間，剩餘名額被別人取走了。重播是直接以儲存的結果作答，
+        // 因此重試不會依新的狀態重新評估 - 而這正是儲存結果的意義所在。
         Activity::whereKey($activity->id)->update(['joined_count' => 4]);
 
         $this->join($activity, $user)
@@ -65,8 +64,8 @@ class IdempotencyKeyTest extends TestCase
         $this->join($activity, $user, self::KEY);
         $second = $this->join($activity, $user, 'b7e2d4a8-1c39-4f02-8a6b-3d9e5c7f1b20');
 
-        // No replay, so the controller ran again - and the endpoint's own
-        // idempotency is what keeps the seat count at one.
+        // 沒有發生重播，代表 controller 又跑了一次 - 而讓名額數維持在 1 的，
+        // 是端點自身的冪等性。
         $this->assertNull($second->headers->get('Idempotent-Replay'));
         $this->assertSame(1, $activity->fresh()->joined_count);
         $this->assertDatabaseCount('activity_registrations', 1);
@@ -85,7 +84,7 @@ class IdempotencyKeyTest extends TestCase
             ->assertStatus(409)
             ->assertJsonPath('code', 'idempotency_key_reused');
 
-        // The second activity was never touched.
+        // 第二個活動完全沒有被動到。
         $this->assertSame(0, $other->fresh()->joined_count);
     }
 
@@ -97,16 +96,15 @@ class IdempotencyKeyTest extends TestCase
 
         $this->join($activity, $user)->assertCreated();
 
-        // Rewind the stored record to how it looked while that request was
-        // still running - which is exactly what a concurrent duplicate finds.
-        // Reusing the row keeps the test off the fingerprint's internals.
+        // 把已儲存的紀錄倒回該請求仍在執行時的樣子 - 這正是並行的重複請求會看到
+        // 的狀態。沿用同一列可以讓測試不必碰 fingerprint 的內部細節。
         IdempotencyKey::query()->update(['status' => null, 'body' => null]);
 
         $this->join($activity, $user)
             ->assertStatus(409)
             ->assertJsonPath('code', 'request_in_progress');
 
-        // The blocked retry changed nothing.
+        // 被擋下的重試什麼都沒有改變。
         $this->assertSame(1, $activity->fresh()->joined_count);
         $this->assertDatabaseCount('activity_registrations', 1);
     }
@@ -116,7 +114,7 @@ class IdempotencyKeyTest extends TestCase
     {
         $activity = Activity::factory()->withCapacity(4)->create();
 
-        // Two people happening to pick the same key must not collide.
+        // 兩個人剛好選到同一把 key 時不能互相衝突。
         $this->join($activity, User::factory()->create())->assertCreated();
         $second = $this->join($activity, User::factory()->create());
 
@@ -134,13 +132,13 @@ class IdempotencyKeyTest extends TestCase
         $occupant = User::factory()->create();
         $activity->join($occupant);
 
-        // Full: nothing was done, so this outcome must not be stored.
+        // 額滿：什麼都沒做，因此這個結果不該被儲存。
         $this->join($activity, $user)
             ->assertStatus(409)
             ->assertJsonPath('code', 'activity_full');
 
-        // A seat opens up. The same key has to give a fresh answer rather than
-        // replaying "full" or reporting itself as still in progress.
+        // 有名額釋出了。同一把 key 必須給出全新的答案，而不是重播「額滿」或回報
+        // 自己仍在處理中。
         $activity->cancel($occupant);
 
         $response = $this->join($activity, $user);
@@ -158,8 +156,8 @@ class IdempotencyKeyTest extends TestCase
 
         $this->join($activity, $user)->assertCreated();
 
-        // The reason these live in a table: clearing the cache is routine, and
-        // it must not quietly switch the protection off.
+        // 這些紀錄之所以放在資料表裡：清快取是例行操作，而它不該無聲無息地把這道
+        // 保護關掉。
         $this->artisan('cache:clear')->assertSuccessful();
 
         $this->assertSame('true', $this->join($activity, $user)->headers->get('Idempotent-Replay'));
@@ -176,8 +174,8 @@ class IdempotencyKeyTest extends TestCase
 
         IdempotencyKey::query()->update(['expires_at' => now()->subMinute()]);
 
-        // Past its TTL the record means nothing, so the same key starts a
-        // fresh request rather than replaying a stale answer.
+        // 超過 TTL 之後紀錄已無意義，因此同一把 key 會開啟一個全新的請求，而不是
+        // 重播過時的答案。
         $response = $this->join($activity, $user);
 
         $response->assertCreated();
@@ -248,8 +246,8 @@ class IdempotencyKeyTest extends TestCase
         $first->assertCreated();
         $second->assertCreated();
 
-        // Without a key this would leave two identical activities behind -
-        // there is no natural unique key to fall back on here.
+        // 沒有帶 key 的話，這裡會留下兩筆一模一樣的活動 - 這個情境沒有天然的唯一
+        // 鍵可以退而求其次。
         $this->assertDatabaseCount('activities', 1);
         $this->assertSame($first->json('data.id'), $second->json('data.id'));
     }

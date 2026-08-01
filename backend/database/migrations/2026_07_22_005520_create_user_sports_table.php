@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * 執行遷移。
      */
     public function up(): void
     {
@@ -18,15 +18,14 @@ return new class extends Migration
             $table->timestamp('created_at')->useCurrent();
             $table->softDeletes();
 
-            // The unique index covers soft-deleted rows too, so re-adding a
-            // removed sport restores the existing row rather than inserting a
-            // second one (see User::addSport()).
+            // 這個唯一索引同樣涵蓋軟刪除的資料列，因此重新加入曾移除的運動會還原
+            // 既有的資料列，而不是插入第二筆（見 User::addSport()）。
             $table->unique(['user_id', 'sport_id']);
         });
     }
 
     /**
-     * Reverse the migrations.
+     * 還原遷移。
      */
     public function down(): void
     {

@@ -5,16 +5,15 @@ namespace App\Exceptions;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
 /**
- * A 409 raised deliberately by the application: the request was well formed
- * but lost a race against the current state of the resource.
+ * 由應用程式刻意拋出的 409：請求格式無誤，但在與資源目前狀態的競爭中落敗。
  *
- * Subclasses carry an already-localised message plus a stable machine code, so
- * the client can branch on the outcome without parsing display text.
+ * 子類別會帶上已在地化的訊息以及一組固定的機器碼，讓用戶端不必解析顯示文字就能
+ * 依結果分支處理。
  */
 abstract class ConflictException extends ConflictHttpException
 {
     /**
-     * Stable identifier for this outcome, returned as `code` in the response.
+     * 這個結果的固定識別碼，會以 `code` 的形式回傳於回應中。
      */
     abstract public function errorCode(): string;
 }

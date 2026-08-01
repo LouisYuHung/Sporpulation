@@ -9,7 +9,7 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 class SportController extends Controller
 {
     /**
-     * The full sport catalogue, for the picker.
+     * 完整的運動項目清單，供選擇器使用。
      */
     public function index(): AnonymousResourceCollection
     {

@@ -35,7 +35,7 @@ class ActivityFactory extends Factory
     }
 
     /**
-     * An activity with exactly $seats seats, none of them taken.
+     * 一個剛好有 $seats 個名額、且都尚未被佔用的活動。
      */
     public function withCapacity(int $seats): static
     {
@@ -43,8 +43,7 @@ class ActivityFactory extends Factory
     }
 
     /**
-     * An activity that has already started, so it no longer takes
-     * registrations.
+     * 一個已經開始、因此不再接受報名的活動。
      */
     public function started(): static
     {

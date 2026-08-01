@@ -34,7 +34,7 @@ class District extends Model
     }
 
     /**
-     * Users who have tagged this district as an area they frequent.
+     * 將這個行政區標記為常用地區的使用者。
      */
     public function users(): BelongsToMany
     {

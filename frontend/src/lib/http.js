@@ -17,8 +17,8 @@ http.interceptors.request.use((config) => {
 http.interceptors.response.use(
   (response) => response,
   (error) => {
-    // clear(), not logout(): the token is already dead, and calling the
-    // logout endpoint here would just 401 again.
+    // 用 clear() 而非 logout()：token 早已失效，此時再呼叫登出端點只會再拿到
+    // 一次 401。
     if (error.response?.status === 401) {
       useAuthStore().clear()
     }
@@ -27,9 +27,8 @@ http.interceptors.response.use(
 )
 
 /**
- * Request config that tags a write with an idempotency key, so the server can
- * recognise a retry of the same intent and replay its first answer rather than
- * acting twice.
+ * 為寫入請求加上冪等 key 的請求設定，讓伺服器能認出這是同一個意圖的重試，重播
+ * 第一次的回應而不是執行第二次。
  */
 export function idempotent(key) {
   return { headers: { 'Idempotency-Key': key } }

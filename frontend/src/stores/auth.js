@@ -6,9 +6,8 @@ export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem('token'))
   const user = ref(null)
 
-  // False while the stored token is still being checked, so views can tell
-  // "not logged in" from "we do not know yet" and avoid flashing a signed-out
-  // state on reload.
+  // 在檢查已儲存的 token 期間為 false，讓畫面能分辨「未登入」與「還不確定」，
+  // 避免重新整理時閃過一瞬間的未登入狀態。
   const ready = ref(false)
 
   const isAuthenticated = computed(() => Boolean(token.value))
@@ -18,7 +17,7 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.setItem('token', newToken)
   }
 
-  /** Resources come back wrapped in `data`; auth endpoints return the user flat. */
+  /** Resource 會包在 `data` 裡回傳；認證端點則直接回傳扁平的使用者物件。 */
   async function fetchUser() {
     const { data } = await http.get('/me')
     user.value = data.data
@@ -45,8 +44,8 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
-   * Restore the session held in localStorage. Safe to call repeatedly - it
-   * only ever does the work once per page load.
+   * 還原存放在 localStorage 的登入狀態。可以安全地重複呼叫 - 每次頁面載入實際
+   * 上只會執行一次。
    */
   async function restore() {
     if (ready.value) return
@@ -59,15 +58,14 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       await fetchUser()
     } catch {
-      // A token that no longer works is the same as no token; the 401
-      // interceptor has already cleared it.
+      // 已失效的 token 等同於沒有 token；401 攔截器早已把它清除。
       clear()
     } finally {
       ready.value = true
     }
   }
 
-  /** Drop local session state without calling the API. */
+  /** 清除本地登入狀態，不呼叫 API。 */
   function clear() {
     token.value = null
     user.value = null
@@ -78,7 +76,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       await http.post('/auth/logout')
     } catch {
-      // Revoking server-side is best effort; the local session goes either way.
+      // 伺服器端撤銷屬盡力而為；無論成功與否，本地登入狀態都會被清掉。
     }
 
     clear()

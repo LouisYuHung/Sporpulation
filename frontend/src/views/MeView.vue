@@ -21,8 +21,8 @@ const busy = ref(false)
 
 const user = computed(() => auth.user)
 
-// The catalogue minus what the user already has, so the pickers never offer a
-// duplicate the API would just fold back into the existing row.
+// 完整清單扣掉使用者已經擁有的項目，讓選擇器不會列出重複的選項 - 那些選項送到
+// API 後也只會被併回既有的那一列。
 const availableSports = computed(() => {
   const taken = new Set((user.value?.sports ?? []).map((sport) => sport.id))
 
@@ -63,7 +63,7 @@ async function load() {
   }
 }
 
-/** Run a write, then pull the profile back so the page shows what was stored. */
+/** 執行一次寫入，接著重新取回個人資料，讓畫面顯示的是實際已儲存的內容。 */
 async function mutate(request) {
   busy.value = true
   error.value = ''

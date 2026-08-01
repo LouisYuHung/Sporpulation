@@ -9,6 +9,6 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-// Idempotency records are only meaningful until they expire. Hourly rather
-// than daily so a key freed early by expiry is reusable soon after.
+// 冪等紀錄只在過期之前有意義。採每小時而非每日執行，讓因過期而提早釋出的 key
+// 能盡快重新被使用。
 Schedule::command('model:prune', ['--model' => [IdempotencyKey::class]])->hourly();

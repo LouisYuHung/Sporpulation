@@ -9,8 +9,8 @@ use App\Models\User;
 use Illuminate\Database\Seeder;
 
 /**
- * Demo activities so the listing and registration screens have something to
- * show on a fresh install. Runs after the region and sport seeders.
+ * 示範用的活動資料，讓全新安裝時列表與報名畫面有東西可以顯示。會在地區與運動
+ * seeder 之後執行。
  */
 class ActivitySeeder extends Seeder
 {

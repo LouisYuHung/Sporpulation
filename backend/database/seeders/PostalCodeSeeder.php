@@ -8,14 +8,14 @@ use Illuminate\Database\Seeder;
 class PostalCodeSeeder extends Seeder
 {
     /**
-     * Taiwan 3-digit postal codes, nested city zh-TW => (district zh-TW => code).
+     * 臺灣 3 碼郵遞區號，巢狀結構為 縣市 zh-TW => (行政區 zh-TW => 郵遞區號)。
      *
-     * Source: 中華郵政「臺灣地區郵遞區號前3碼一覽表」(103.12.25 啟用).
+     * 資料來源：中華郵政「臺灣地區郵遞區號前3碼一覽表」（103.12.25 啟用）。
      *
-     * Nested by city because district names repeat across cities with
-     * different codes (e.g. 東區 is 401 in 臺中市 but 701 in 臺南市), so a flat
-     * district-name key would be ambiguous. 新竹市 / 嘉義市 are single 3-digit
-     * regions (300 / 600), so all their districts share one code.
+     * 之所以依縣市巢狀存放，是因為不同縣市會有相同的行政區名稱卻對應不同的號碼
+     *（例如 東區 在 臺中市 是 401，在 臺南市 卻是 701），若用扁平的行政區名稱當
+     * 鍵會產生歧義。新竹市／嘉義市 各自只有單一的 3 碼區（300／600），因此其底下
+     * 所有行政區共用同一個號碼。
      *
      * @var array<string, array<string, int>>
      */
@@ -435,7 +435,7 @@ class PostalCodeSeeder extends Seeder
     ];
 
     /**
-     * Run the database seeds.
+     * 執行資料填充。
      */
     public function run(): void
     {

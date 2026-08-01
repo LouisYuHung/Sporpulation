@@ -3,7 +3,7 @@
 namespace App\Exceptions;
 
 /**
- * Every seat was taken before this request could claim one.
+ * 在這個請求來得及佔位之前，所有名額都已被取走。
  */
 class ActivityFullException extends ConflictException
 {

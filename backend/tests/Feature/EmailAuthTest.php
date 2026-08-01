@@ -28,7 +28,7 @@ class EmailAuthTest extends TestCase
 
         $this->assertDatabaseHas('users', ['email' => 'louis@example.com']);
 
-        // Stored hashed, never in the clear.
+        // 以雜湊形式儲存，絕不明文保存。
         $this->assertNotSame('correct-horse-battery', User::first()->password);
     }
 
@@ -62,7 +62,7 @@ class EmailAuthTest extends TestCase
             ->assertJsonPath('user.email', 'louis@example.com')
             ->assertJsonStructure(['token']);
 
-        // The token actually works.
+        // 確認這個 token 真的可以使用。
         $this->withHeader('Authorization', 'Bearer '.$response->json('token'))
             ->getJson('/api/me')
             ->assertOk()
@@ -87,8 +87,7 @@ class EmailAuthTest extends TestCase
             'password' => 'not-the-password',
         ]);
 
-        // Identical responses, so the endpoint cannot be used to discover
-        // which emails have accounts.
+        // 回應完全相同，因此這個端點無法被用來探測哪些 email 有帳號。
         $wrongPassword->assertJsonValidationErrors('email');
         $this->assertSame($wrongPassword->json(), $unknownEmail->json());
     }
@@ -104,10 +103,9 @@ class EmailAuthTest extends TestCase
             ->postJson('/api/auth/logout')
             ->assertOk();
 
-        // The application is not rebooted between requests in a test, so the
-        // guard still holds the user it resolved a moment ago. Clearing it
-        // makes the next call authenticate from scratch, the way a real
-        // second request would.
+        // 測試中的請求之間不會重新啟動應用程式，因此 guard 仍握著剛才解析出來的
+        // 使用者。清掉它可以讓下一次呼叫從頭進行驗證，就像真實世界的第二個請求
+        // 一樣。
         $this->app['auth']->forgetGuards();
 
         $this->withHeader('Authorization', 'Bearer '.$phone)

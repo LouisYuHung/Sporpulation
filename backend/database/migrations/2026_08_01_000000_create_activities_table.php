@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * 執行遷移。
      */
     public function up(): void
     {
@@ -23,17 +23,16 @@ return new class extends Migration
             $table->dateTime('ends_at');
             $table->unsignedSmallInteger('capacity');
 
-            // Denormalised count of confirmed registrations. activity_registrations
-            // stays the source of truth; this column exists so a seat can be
-            // claimed with one conditional UPDATE (see Activity::claimSeat()).
-            // unsigned also makes an underflow fail loudly rather than silently
-            // wrap into a huge number.
+            // 已確認報名數的反正規化計數。activity_registrations 仍是唯一事實
+            // 來源；這個欄位存在的目的，是讓佔用名額能用單一條件式 UPDATE 完成
+            //（見 Activity::claimSeat()）。使用 unsigned 也能讓下溢直接爆錯，
+            // 而不是無聲地繞回成一個極大的數字。
             $table->unsignedSmallInteger('joined_count')->default(0);
 
             $table->timestamps();
 
-            // Listing queries are always "upcoming, optionally narrowed by
-            // sport or district", so starts_at trails both filter columns.
+            // 列表查詢一律是「即將開始，可再以運動或行政區篩選」，因此 starts_at
+            // 都排在兩個篩選欄位之後。
             $table->index(['sport_id', 'starts_at']);
             $table->index(['district_id', 'starts_at']);
             $table->index('starts_at');
@@ -41,7 +40,7 @@ return new class extends Migration
     }
 
     /**
-     * Reverse the migrations.
+     * 還原遷移。
      */
     public function down(): void
     {

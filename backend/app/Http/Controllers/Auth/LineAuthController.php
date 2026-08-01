@@ -12,12 +12,12 @@ use Laravel\Socialite\Facades\Socialite;
 class LineAuthController extends Controller
 {
     /**
-     * Return the LINE authorize URL for the frontend to redirect the browser to.
+     * 回傳 LINE 的授權 URL，供前端把瀏覽器導向過去。
      */
     public function redirect(): JsonResponse
     {
-        // LINE requires a `state` param even though we don't validate it
-        // (stateless mode skips CSRF/session-based state verification).
+        // LINE 要求一定要帶 `state` 參數，即使我們並不驗證它
+        //（stateless 模式會略過以 CSRF／session 為基礎的 state 驗證）。
         $url = Socialite::driver('line')
             ->stateless()
             ->with(['state' => Str::random(40)])
@@ -28,8 +28,8 @@ class LineAuthController extends Controller
     }
 
     /**
-     * Handle the redirect back from LINE, then send the user back to the
-     * frontend with a Sanctum token so it can authenticate future API calls.
+     * 處理 LINE 導回的請求，接著帶著 Sanctum token 把使用者送回前端，讓前端能以它
+     * 驗證後續的 API 呼叫。
      */
     public function callback(): RedirectResponse
     {

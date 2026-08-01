@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * 執行遷移。
      */
     public function up(): void
     {
@@ -16,17 +16,16 @@ return new class extends Migration
             $table->foreignId('activity_id')->constrained()->cascadeOnDelete();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
 
-            // App\Enums\RegistrationStatus. Cancelling keeps the row and flips
-            // the status instead of deleting, so the unique index below still
-            // recognises a returning user and the history stays auditable.
+            // 對應 App\Enums\RegistrationStatus。取消時保留資料列並翻轉狀態而非
+            // 刪除，如此下方的唯一索引仍能認出回頭報名的使用者，歷程也保有可稽核性。
             $table->unsignedTinyInteger('status');
 
             $table->timestamp('joined_at')->nullable();
             $table->timestamp('cancelled_at')->nullable();
             $table->timestamps();
 
-            // The idempotency key for joining: a replayed request collides here
-            // rather than taking a second seat (see Activity::join()).
+            // 報名的冪等鍵：重送的請求會在這裡發生衝突，而不是佔走第二個名額
+            //（見 Activity::join()）。
             $table->unique(['activity_id', 'user_id']);
 
             $table->index(['user_id', 'status']);
@@ -34,7 +33,7 @@ return new class extends Migration
     }
 
     /**
-     * Reverse the migrations.
+     * 還原遷移。
      */
     public function down(): void
     {

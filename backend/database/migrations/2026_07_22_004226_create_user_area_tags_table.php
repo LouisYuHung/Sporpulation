@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * 執行遷移。
      */
     public function up(): void
     {
@@ -18,18 +18,17 @@ return new class extends Migration
             $table->timestamp('created_at')->useCurrent();
             $table->softDeletes();
 
-            // A user tags any given district at most once. The city is reached
-            // through districts.city_id, so it is not duplicated here.
+            // 同一位使用者對任一行政區最多只會標記一次。縣市透過
+            // districts.city_id 取得，因此不在這裡重複儲存。
 
-            // The unique index covers soft-deleted rows too, so re-adding a
-            // removed area restores the existing row rather than inserting a
-            // second one (see User::addArea()).
+            // 這個唯一索引同樣涵蓋軟刪除的資料列，因此重新加入曾移除的地區會還原
+            // 既有的資料列，而不是插入第二筆（見 User::addArea()）。
             $table->unique(['user_id', 'district_id']);
         });
     }
 
     /**
-     * Reverse the migrations.
+     * 還原遷移。
      */
     public function down(): void
     {

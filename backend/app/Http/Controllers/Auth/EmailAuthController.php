@@ -12,8 +12,8 @@ use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Email and password sign-in, issuing the same kind of Sanctum token the LINE
- * flow hands out, so the frontend treats both logins identically.
+ * Email 與密碼登入，發放與 LINE 流程相同型式的 Sanctum token，讓前端可以用完全
+ * 一致的方式處理這兩種登入。
  */
 class EmailAuthController extends Controller
 {
@@ -39,8 +39,8 @@ class EmailAuthController extends Controller
 
         $user = User::where('email', $data['email'])->first();
 
-        // One message for both "no such account" and "wrong password", so the
-        // endpoint cannot be used to find out which emails are registered.
+        // 「查無此帳號」與「密碼錯誤」共用同一則訊息，避免這個端點被拿來探測
+        // 哪些 email 已經註冊過。
         if (! $user || ! Hash::check($data['password'], $user->password)) {
             throw ValidationException::withMessages([
                 'email' => __('auth.failed'),
@@ -51,8 +51,7 @@ class EmailAuthController extends Controller
     }
 
     /**
-     * Revoke only the token that made this request, so signing out on one
-     * device leaves the others alone.
+     * 只撤銷發出這個請求的 token，因此在某台裝置登出不會影響其他裝置。
      */
     public function logout(Request $request): JsonResponse
     {

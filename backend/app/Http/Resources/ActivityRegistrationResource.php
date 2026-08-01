@@ -18,8 +18,8 @@ class ActivityRegistrationResource extends JsonResource
         return [
             'id' => $this->id,
 
-            // Enums are exposed as {value, label} so the client never has to
-            // map a raw int to display text.
+            // 列舉一律以 {value, label} 的形式輸出，讓用戶端完全不需要自行把
+            // 原始整數對應成顯示文字。
             'status' => [
                 'value' => $this->status->value,
                 'label' => $this->status->label(),

@@ -1,4 +1,4 @@
-# --- PHP dependencies stage ---
+# --- PHP 相依套件階段 ---
 FROM composer:2 AS vendor
 
 WORKDIR /app
@@ -12,7 +12,7 @@ RUN composer install \
     --prefer-dist \
     --ignore-platform-reqs
 
-# --- Application image ---
+# --- 應用程式映像檔 ---
 FROM php:8.4-fpm-alpine AS app
 
 RUN apk add --no-cache \

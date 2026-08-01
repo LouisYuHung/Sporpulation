@@ -26,7 +26,7 @@ class ActivityTest extends TestCase
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.id', $soon->id)
             ->assertJsonPath('data.1.id', $later->id)
-            // Guests have no registration to report.
+            // 訪客沒有報名紀錄可以回報。
             ->assertJsonMissingPath('data.0.my_registration');
     }
 
@@ -85,7 +85,7 @@ class ActivityTest extends TestCase
         $response->assertCreated()
             ->assertJsonPath('data.title', '週末鬥牛')
             ->assertJsonPath('data.capacity', 10)
-            // The host is not signed up automatically.
+            // 主辦人不會被自動報名。
             ->assertJsonPath('data.joined_count', 0)
             ->assertJsonPath('data.host.id', $user->id);
 

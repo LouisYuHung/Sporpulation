@@ -14,8 +14,7 @@ use Illuminate\Validation\Rule;
 class ActivityRegistrationController extends Controller
 {
     /**
-     * The authenticated user's registrations. Confirmed ones by default;
-     * pass ?status= to see cancelled ones instead.
+     * 已登入使用者的報名紀錄。預設只列出已確認的；帶入 ?status= 可改看已取消的。
      */
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -30,7 +29,7 @@ class ActivityRegistrationController extends Controller
                 fn ($query) => $query->confirmed(),
             )
             ->with(['activity' => fn ($query) => $query->with(ActivityController::relations($request))])
-            // Ordered by when the user is due to play, not when they signed up.
+            // 依使用者實際要下場的時間排序，而不是依報名的時間。
             ->join('activities', 'activities.id', '=', 'activity_registrations.activity_id')
             ->orderBy('activities.starts_at')
             ->select('activity_registrations.*')
@@ -40,12 +39,10 @@ class ActivityRegistrationController extends Controller
     }
 
     /**
-     * Claim a seat.
+     * 佔用一個名額。
      *
-     * Idempotent: replaying the request returns the same activity with the
-     * same joined_count, because the registration itself is keyed on
-     * (activity_id, user_id). Responds 409 when the activity is full or has
-     * already started.
+     * 具冪等性：重送同一個請求會回傳同一個活動與同樣的 joined_count，因為報名紀錄
+     * 本身是以 (activity_id, user_id) 為鍵。活動額滿或已開始時回應 409。
      */
     public function store(Request $request, Activity $activity): JsonResponse
     {
@@ -55,8 +52,7 @@ class ActivityRegistrationController extends Controller
     }
 
     /**
-     * Give the seat back. Idempotent: cancelling twice, or cancelling without
-     * ever having joined, is a no-op.
+     * 歸還名額。具冪等性：重複取消，或在從未報名的情況下取消，都不會有任何作用。
      */
     public function destroy(Request $request, Activity $activity): ActivityResource
     {
@@ -66,11 +62,11 @@ class ActivityRegistrationController extends Controller
     }
 
     /**
-     * The activity as it now stands, so the client can refresh joined_count
-     * and the caller's own status straight from the write response.
+     * 回傳活動的當前狀態，讓用戶端可以直接從這個寫入回應更新 joined_count 與呼叫者
+     * 自己的報名狀態。
      *
-     * Re-read rather than trusted from memory: other people join and cancel
-     * between requests, and the count they see should be the current one.
+     * 這裡選擇重新讀取而不是沿用記憶體中的值：請求之間會有其他人報名與取消，使用者
+     * 看到的數字應該是最新的。
      */
     private function activity(Request $request, Activity $activity): ActivityResource
     {

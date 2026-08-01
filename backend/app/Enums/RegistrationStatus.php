@@ -3,20 +3,19 @@
 namespace App\Enums;
 
 /**
- * Backed by tinyint on activity_registrations.status.
+ * 對應 activity_registrations.status 的 tinyint 欄位。
  *
- * Cancelling flips the status rather than deleting the row, so a user who
- * rejoins reuses their existing registration. Values are reserved rather than
- * reused: a future waitlist adds a case here without touching stored data.
+ * 取消是翻轉狀態而非刪除資料列，因此重新報名的使用者會沿用既有的報名紀錄。數值只
+ * 保留、不重複使用：未來要加候補名單時，只需在這裡新增一個 case，不必動到既有資料。
  */
 enum RegistrationStatus: int
 {
     case Confirmed = 1;
     case Cancelled = 2;
-    // 3 is reserved for Waitlisted.
+    // 3 保留給候補（Waitlisted）。
 
     /**
-     * Display name in the current locale (set by the SetLocale middleware).
+     * 依目前語系（由 SetLocale middleware 設定）取得顯示名稱。
      */
     public function label(): string
     {

@@ -7,19 +7,18 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * 執行遷移。
      */
     public function up(): void
     {
         Schema::table('user_sports', function (Blueprint $table) {
-            // Self-rated skill, 1-10. Nullable: a user may add a sport
-            // without rating themselves yet.
+            // 自評程度，1-10。可為 null：使用者可以先加入一項運動，之後再評分。
             $table->unsignedTinyInteger('level')->nullable()->after('sport_id');
         });
     }
 
     /**
-     * Reverse the migrations.
+     * 還原遷移。
      */
     public function down(): void
     {

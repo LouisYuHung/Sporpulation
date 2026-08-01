@@ -3,8 +3,8 @@
 namespace App\Exceptions;
 
 /**
- * Another request carrying this idempotency key is still running. The client
- * should wait and retry with the same key rather than treat this as a failure.
+ * 另一個帶有相同冪等 key 的請求仍在執行中。用戶端應該稍候並以同一把 key 重試，
+ * 而不是把這視為失敗。
  */
 class RequestInProgressException extends ConflictException
 {

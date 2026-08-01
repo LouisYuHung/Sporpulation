@@ -29,7 +29,7 @@ class ActivityRegistration extends Model
     }
 
     /**
-     * Registrations that currently hold a seat.
+     * 目前持有名額的報名紀錄。
      *
      * @param  Builder<self>  $query
      */

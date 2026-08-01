@@ -14,14 +14,13 @@ use Illuminate\Support\Facades\DB;
 use Throwable;
 
 /**
- * Proves the seat accounting holds when requests actually overlap.
+ * 驗證在請求真的重疊時，名額的帳仍然算得準。
  *
- * The test suite runs on sqlite, one request at a time, so it can check the
- * logic but never the concurrency: it cannot catch a lock-ordering deadlock or
- * two requests both taking the last seat. This forks real processes against
- * whatever database is configured - point it at MySQL.
+ * 測試套件跑在 sqlite 上、一次只處理一個請求，因此它能驗證邏輯，卻永遠驗不到並行：
+ * 它抓不到鎖順序造成的死結，也抓不到兩個請求同時取走最後一個名額。這個指令會針對
+ * 實際設定的資料庫 fork 出真正的行程 - 請指向 MySQL 使用。
  *
- * It writes throwaway records, so run it against a scratch database only.
+ * 它會寫入用完即棄的資料，因此只能對測試用資料庫執行。
  */
 class CheckSeatConcurrency extends Command
 {
@@ -61,7 +60,7 @@ class CheckSeatConcurrency extends Command
     }
 
     /**
-     * Many different users, far too few seats.
+     * 大量不同的使用者，搶遠遠不夠的名額。
      */
     private function stampede(array $seed): void
     {
@@ -86,8 +85,8 @@ class CheckSeatConcurrency extends Command
     }
 
     /**
-     * One user, one activity, many simultaneous retries - a double-tapped
-     * button or a client retrying a request that timed out.
+     * 一位使用者、一個活動、同時湧入大量重試 - 例如按鈕被連點兩下，或用戶端重試
+     * 一個逾時的請求。
      */
     private function retryStorm(array $seed): void
     {
@@ -102,8 +101,8 @@ class CheckSeatConcurrency extends Command
     }
 
     /**
-     * Joining and cancelling in a loop while others compete for the same
-     * seats, to catch a seat released or claimed twice.
+     * 一邊反覆報名與取消，一邊與其他人爭搶同一批名額，用來抓出名額被重複釋出或
+     * 重複佔用的情況。
      */
     private function churn(array $seed): void
     {
@@ -117,7 +116,7 @@ class CheckSeatConcurrency extends Command
                     $fresh->join($users[$i]);
                     $fresh->cancel($users[$i]);
                 } catch (ConflictException) {
-                    // Full at this instant; that is a legitimate outcome.
+                    // 此刻剛好額滿；這是合理的結果。
                 } catch (Throwable $e) {
                     $this->reportUnexpected($e);
 
@@ -134,7 +133,7 @@ class CheckSeatConcurrency extends Command
     }
 
     /**
-     * @return int 0 joined, 1 turned away, 2 unexpected failure
+     * @return int 0 報名成功、1 被拒絕、2 非預期的失敗
      */
     private function attemptJoin(Activity $activity, User $user): int
     {
@@ -152,8 +151,7 @@ class CheckSeatConcurrency extends Command
     }
 
     /**
-     * Run $count copies of $work at the same wall-clock instant and collect
-     * their exit codes.
+     * 在同一個實際時間點同時執行 $count 份 $work，並收集它們的結束代碼。
      *
      * @param  callable(int): int  $work
      * @return list<int>
@@ -167,8 +165,8 @@ class CheckSeatConcurrency extends Command
             $pid = pcntl_fork();
 
             if ($pid === 0) {
-                // The inherited connection is shared with every sibling, so
-                // each child opens its own before touching the database.
+                // 繼承而來的連線會與所有兄弟行程共用，因此每個子行程在碰資料庫
+                // 之前都先開自己的連線。
                 DB::purge();
 
                 usleep((int) max(0, ($startAt - microtime(true)) * 1_000_000));

@@ -23,8 +23,8 @@ class ActivityResource extends JsonResource
             'starts_at' => $this->starts_at->toIso8601String(),
             'ends_at' => $this->ends_at->toIso8601String(),
 
-            // remaining_seats and is_full are derived, but sending them saves
-            // every client from reimplementing the same arithmetic.
+            // remaining_seats 與 is_full 都是推導出來的，但一併回傳可以省下每個
+            // 用戶端各自重寫同一套計算。
             'capacity' => $this->capacity,
             'joined_count' => $this->joined_count,
             'remaining_seats' => $this->remainingSeats(),
@@ -35,10 +35,9 @@ class ActivityResource extends JsonResource
             'sport' => new SportResource($this->whenLoaded('sport')),
             'district' => new DistrictResource($this->whenLoaded('district')),
 
-            // The controller eager loads `registrations` constrained to the
-            // current user, so this holds at most their own row. Null means
-            // the user has never registered; a cancelled registration still
-            // shows up, with its status.
+            // Controller 預先載入的 `registrations` 已限縮成只有目前使用者，因此
+            // 這裡最多只會有他自己的那一列。null 代表使用者從未報名；已取消的報名
+            // 仍會出現，並附帶其狀態。
             'my_registration' => $this->whenLoaded('registrations', function () {
                 $registration = $this->registrations->first();
 

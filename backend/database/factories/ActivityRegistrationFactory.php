@@ -14,8 +14,8 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 class ActivityRegistrationFactory extends Factory
 {
     /**
-     * Note this does not touch activities.joined_count - use Activity::join()
-     * when the seat count matters.
+     * 注意這裡不會動到 activities.joined_count - 當名額計數有意義時，請改用
+     * Activity::join()。
      *
      * @return array<string, mixed>
      */

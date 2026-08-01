@@ -9,10 +9,10 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 class RegionController extends Controller
 {
     /**
-     * Cities with their districts, for the area picker.
+     * 縣市與其底下的行政區，供地區選擇器使用。
      *
-     * Names come back as plain strings in the request locale, resolved by
-     * the SetLocale middleware from the Accept-Language header.
+     * 名稱會以請求語系的純字串回傳，語系由 SetLocale middleware 從 Accept-Language
+     * 標頭解析而來。
      */
     public function index(): AnonymousResourceCollection
     {

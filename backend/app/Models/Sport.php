@@ -20,7 +20,7 @@ class Sport extends Model
     public array $translatable = ['name'];
 
     /**
-     * Users who play this sport.
+     * 從事這項運動的使用者。
      */
     public function users(): BelongsToMany
     {

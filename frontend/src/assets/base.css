@@ -1,5 +1,5 @@
-/* Design tokens. Every colour used in the app resolves to one of these, so
-   dark mode is a matter of re-pointing the semantic names below. */
+/* 設計 token。應用程式中用到的每個顏色最終都會對應到這裡的其中一個，因此深色
+   模式只需要把下方的語意名稱重新指向即可。 */
 :root {
   --slate-50: #f8fafc;
   --slate-100: #f1f5f9;
@@ -26,7 +26,7 @@
   --page-width: 960px;
 }
 
-/* Semantic names, light theme. */
+/* 語意化名稱，淺色主題。 */
 :root {
   --bg: var(--slate-50);
   --surface: #ffffff;
