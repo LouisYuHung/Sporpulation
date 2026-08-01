@@ -43,13 +43,19 @@ Route::get('/activities', [ActivityController::class, 'index']);
 Route::get('/activities/{activity}', [ActivityController::class, 'show']);
 
 Route::middleware('auth:sanctum')->group(function () {
-    Route::post('/activities', [ActivityController::class, 'store']);
+    // `idempotent` honours an Idempotency-Key header when the client sends
+    // one, replaying the first response instead of acting twice. Creating an
+    // activity has no natural key at all, so a retried request would otherwise
+    // leave a duplicate behind.
+    Route::middleware('idempotent')->group(function () {
+        Route::post('/activities', [ActivityController::class, 'store']);
 
-    // Singular from the caller's point of view: they have at most one
-    // registration per activity, so there is no id in the path.
-    Route::prefix('activities/{activity}/registration')->group(function () {
-        Route::post('/', [ActivityRegistrationController::class, 'store']);
-        Route::delete('/', [ActivityRegistrationController::class, 'destroy']);
+        // Singular from the caller's point of view: they have at most one
+        // registration per activity, so there is no id in the path.
+        Route::prefix('activities/{activity}/registration')->group(function () {
+            Route::post('/', [ActivityRegistrationController::class, 'store']);
+            Route::delete('/', [ActivityRegistrationController::class, 'destroy']);
+        });
     });
 
     Route::prefix('me')->group(function () {

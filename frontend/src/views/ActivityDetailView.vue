@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import http from '@/lib/http'
+import http, { idempotent, newIdempotencyKey } from '@/lib/http'
 import { useAuthStore } from '@/stores/auth'
 import { conflictCode, errorMessage } from '@/lib/errors'
 import { formatTimeRange } from '@/lib/format'
@@ -18,6 +18,9 @@ const loading = ref(true)
 const submitting = ref(false)
 const error = ref('')
 const notice = ref('')
+
+// Held between attempts so a retry of an unanswered request reuses its key.
+const pendingKey = ref(null)
 
 const joined = computed(() => activity.value?.my_registration?.status?.value === 1)
 const filledPercent = computed(() =>
@@ -48,11 +51,17 @@ async function join() {
     return
   }
 
-  await submit(() => http.post(`/activities/${props.id}/registration`), '報名成功。')
+  await submit(
+    (key) => http.post(`/activities/${props.id}/registration`, null, idempotent(key)),
+    '報名成功。',
+  )
 }
 
 async function cancel() {
-  await submit(() => http.delete(`/activities/${props.id}/registration`), '已取消報名。')
+  await submit(
+    (key) => http.delete(`/activities/${props.id}/registration`, idempotent(key)),
+    '已取消報名。',
+  )
 }
 
 /**
@@ -60,15 +69,25 @@ async function cancel() {
  * caller's own status refresh straight from the response - no reload needed.
  */
 async function submit(request, successMessage) {
+  // One key per intent. A request that never got an answer keeps its key, so
+  // pressing the button again is recognised as the same attempt rather than a
+  // second one; anything the server answered is settled and starts fresh.
+  pendingKey.value ??= newIdempotencyKey()
+
   submitting.value = true
   error.value = ''
   notice.value = ''
 
   try {
-    const { data } = await request()
+    const { data } = await request(pendingKey.value)
     activity.value = data.data
     notice.value = successMessage
+    pendingKey.value = null
   } catch (e) {
+    if (e.response) {
+      pendingKey.value = null
+    }
+
     const code = conflictCode(e)
 
     // A 409 means the world moved on while the page sat here, so show the

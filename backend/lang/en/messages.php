@@ -32,4 +32,10 @@ return [
         'closed' => 'This activity is no longer taking registrations.',
     ],
 
+    'idempotency' => [
+        'in_progress' => 'An identical request is still being processed. Please retry in a moment.',
+        'reused' => 'This idempotency key was already used for a different request.',
+        'invalid' => 'The idempotency key is not a valid length.',
+    ],
+
 ];

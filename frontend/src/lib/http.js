@@ -26,4 +26,17 @@ http.interceptors.response.use(
   },
 )
 
+/**
+ * Request config that tags a write with an idempotency key, so the server can
+ * recognise a retry of the same intent and replay its first answer rather than
+ * acting twice.
+ */
+export function idempotent(key) {
+  return { headers: { 'Idempotency-Key': key } }
+}
+
+export function newIdempotencyKey() {
+  return crypto.randomUUID()
+}
+
 export default http

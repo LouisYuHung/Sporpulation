@@ -25,6 +25,12 @@ return Application::configure(basePath: dirname(__DIR__))
         // first, and unmatched routes never enter the group at all - both
         // cases would then render their errors in the wrong locale.
         $middleware->prepend(\App\Http\Middleware\SetLocale::class);
+
+        // Opt-in per route rather than global: only writes worth protecting
+        // pay for the cache round trips.
+        $middleware->alias([
+            'idempotent' => \App\Http\Middleware\EnsureIdempotentRequest::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
