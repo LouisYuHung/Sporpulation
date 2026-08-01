@@ -19,8 +19,17 @@ return [
         'server_error' => 'Something went wrong. Please try again later.',
     ],
 
+    'auth' => [
+        'logged_out' => 'You have been signed out.',
+    ],
+
     'sports' => [
         'not_tagged' => 'This sport is not in your list.',
+    ],
+
+    'activities' => [
+        'full' => 'This activity is already full.',
+        'closed' => 'This activity is no longer taking registrations.',
     ],
 
 ];

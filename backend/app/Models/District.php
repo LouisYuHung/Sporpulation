@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use Database\Factories\DistrictFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -12,7 +14,8 @@ use Spatie\Translatable\HasTranslations;
 #[Fillable(['city_id', 'name'])]
 class District extends Model
 {
-    use HasTranslations;
+    /** @use HasFactory<DistrictFactory> */
+    use HasFactory, HasTranslations;
 
     protected $table = 'districts';
 

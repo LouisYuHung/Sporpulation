@@ -34,6 +34,11 @@ services:
         build:
             context: ./frontend
             dockerfile: Dockerfile
+            args:
+                # Baked into the bundle at build time, and .env is excluded by
+                # .dockerignore - without this the built app has no API base
+                # URL and every call falls back to its own origin.
+                VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080/api}
         image: sporpulation-frontend
         ports:
             - "5173:80"

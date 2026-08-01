@@ -3,12 +3,14 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Enums\RegistrationStatus;
 use App\Enums\Sex;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -136,6 +138,32 @@ class User extends Authenticatable
         UserSport::where('user_id', $this->id)
             ->where('sport_id', $sportId)
             ->delete();
+    }
+
+    /**
+     * Activities the user organises.
+     */
+    public function hostedActivities(): HasMany
+    {
+        return $this->hasMany(Activity::class, 'host_id');
+    }
+
+    /**
+     * Every registration the user has made, cancelled ones included.
+     */
+    public function registrations(): HasMany
+    {
+        return $this->hasMany(ActivityRegistration::class);
+    }
+
+    /**
+     * Activities the user currently holds a seat in.
+     */
+    public function activities(): BelongsToMany
+    {
+        return $this->belongsToMany(Activity::class, 'activity_registrations')
+            ->withPivot(['status', 'joined_at'])
+            ->wherePivot('status', RegistrationStatus::Confirmed->value);
     }
 
     /**

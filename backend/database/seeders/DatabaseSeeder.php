@@ -28,5 +28,8 @@ class DatabaseSeeder extends Seeder
             'name' => 'Test User',
             'email' => 'test@example.com',
         ]);
+
+        // After the user, which it uses as the host.
+        $this->call(ActivitySeeder::class);
     }
 }

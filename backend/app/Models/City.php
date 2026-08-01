@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use Database\Factories\CityFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\Translatable\HasTranslations;
@@ -10,7 +12,8 @@ use Spatie\Translatable\HasTranslations;
 #[Fillable(['name'])]
 class City extends Model
 {
-    use HasTranslations;
+    /** @use HasFactory<CityFactory> */
+    use HasFactory, HasTranslations;
 
     public $timestamps = false;
 

@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
@@ -7,10 +7,13 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 
+const failed = ref(false)
+
 onMounted(async () => {
   const token = route.query.token
+
   if (!token) {
-    router.replace('/')
+    router.replace({ name: 'login' })
     return
   }
 
@@ -19,13 +22,25 @@ onMounted(async () => {
   try {
     await auth.fetchUser()
   } catch {
-    auth.logout()
+    auth.clear()
+    failed.value = true
+    return
   }
 
-  router.replace('/')
+  router.replace({ name: 'me' })
 })
 </script>
 
 <template>
-  <p>登入中...</p>
+  <div class="page callback">
+    <p v-if="failed" class="alert alert-error">登入失敗，請再試一次。</p>
+    <p v-else class="subtle">登入中…</p>
+  </div>
 </template>
+
+<style scoped>
+.callback {
+  text-align: center;
+  padding-top: 4rem;
+}
+</style>

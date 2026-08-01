@@ -17,8 +17,10 @@ http.interceptors.request.use((config) => {
 http.interceptors.response.use(
   (response) => response,
   (error) => {
+    // clear(), not logout(): the token is already dead, and calling the
+    // logout endpoint here would just 401 again.
     if (error.response?.status === 401) {
-      useAuthStore().logout()
+      useAuthStore().clear()
     }
     return Promise.reject(error)
   },

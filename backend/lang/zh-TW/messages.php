@@ -19,8 +19,17 @@ return [
         'server_error' => '發生錯誤,請稍後再試。',
     ],
 
+    'auth' => [
+        'logged_out' => '您已登出。',
+    ],
+
     'sports' => [
         'not_tagged' => '這項運動不在您的清單中。',
+    ],
+
+    'activities' => [
+        'full' => '這場活動的名額已滿。',
+        'closed' => '這場活動已停止報名。',
     ],
 
 ];

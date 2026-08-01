@@ -1,5 +1,6 @@
 <?php
 
+use App\Exceptions\ConflictException;
 use App\Exceptions\ResourceNotFoundException;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
@@ -47,6 +48,13 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(fn (ResourceNotFoundException $e) => response()->json([
             'message' => $e->getMessage(),
         ], 404));
+
+        // Lost a race (activity full, registration closed). The code is stable
+        // across locales so the client can branch on the outcome.
+        $exceptions->render(fn (ConflictException $e) => response()->json([
+            'message' => $e->getMessage(),
+            'code' => $e->errorCode(),
+        ], 409));
 
         // Framework 404s (unmatched route, failed route model binding) carry
         // internal English text such as "No query results for model [...]",

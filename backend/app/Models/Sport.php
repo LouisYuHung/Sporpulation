@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use Database\Factories\SportFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Spatie\Translatable\HasTranslations;
@@ -10,7 +12,8 @@ use Spatie\Translatable\HasTranslations;
 #[Fillable(['name'])]
 class Sport extends Model
 {
-    use HasTranslations;
+    /** @use HasFactory<SportFactory> */
+    use HasFactory, HasTranslations;
 
     public $timestamps = false;
 
