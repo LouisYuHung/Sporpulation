@@ -32,7 +32,16 @@ class ActivitySeeder extends Seeder
 
     public function run(): void
     {
-        $host = User::first() ?? User::factory()->create();
+        // 這裡不用 factory 補使用者：factory 依賴 require-dev 的 faker，正式
+        // 映像檔裡並不存在。主辦人由 DemoDataSeeder 事先建好。
+        $host = User::first();
+
+        if ($host === null) {
+            $this->command?->warn('No users seeded; skipping activities.');
+
+            return;
+        }
+
         $districts = District::inRandomOrder()->limit(count(self::ACTIVITIES))->get();
 
         if ($districts->isEmpty()) {
