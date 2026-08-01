@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -12,27 +11,17 @@ class DatabaseSeeder extends Seeder
 
     /**
      * 填充應用程式的資料庫。
+     *
+     * 容器每次啟動都會執行這個 seeder，所以底下呼叫的每個 seeder 都必須是冪等的。
      */
     public function run(): void
     {
+        // 基礎資料，任何環境都需要。
         $this->call(ReferenceDataSeeder::class);
 
-        // 假資料只給本地開發用。正式環境的基礎資料是由容器啟動時單獨執行
-        // ReferenceDataSeeder 來填的，不會走到這裡。
-        if (app()->isProduction()) {
-            return;
+        // 假資料，預設只在非正式環境填，可用 SEED_DEMO_DATA 覆寫。
+        if (config('database.seed_demo_data')) {
+            $this->call(DemoDataSeeder::class);
         }
-
-        // User::factory(10)->create();
-
-        if (! User::where('email', 'test@example.com')->exists()) {
-            User::factory()->create([
-                'name' => 'Test User',
-                'email' => 'test@example.com',
-            ]);
-        }
-
-        // 放在使用者之後，因為它會拿那位使用者當主辦人。
-        $this->call(ActivitySeeder::class);
     }
 }

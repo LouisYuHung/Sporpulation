@@ -3,6 +3,12 @@
 use Illuminate\Support\Str;
 use Pdo\Mysql;
 
+// 是否填入示範用的假資料。未設定或留白時，非正式環境預設開啟。
+$seedDemoData = env('SEED_DEMO_DATA');
+$seedDemoData = ($seedDemoData === null || $seedDemoData === '')
+    ? env('APP_ENV') !== 'production'
+    : filter_var($seedDemoData, FILTER_VALIDATE_BOOL);
+
 return [
 
     /*
@@ -18,6 +24,21 @@ return [
     */
 
     'default' => env('DB_CONNECTION', 'sqlite'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Seed Demo Data
+    |--------------------------------------------------------------------------
+    |
+    | 是否要填入示範用的假資料（測試使用者、示範活動）。基礎資料（縣市、行政區、
+    | 郵遞區號、運動類型）不受這個選項影響，永遠都會填。
+    |
+    | 預設在非正式環境開啟，方便部署到 demo / staging 站台時畫面上有東西可看；
+    | 正式環境則必須明確設定 SEED_DEMO_DATA=true 才會填。
+    |
+    */
+
+    'seed_demo_data' => $seedDemoData,
 
     /*
     |--------------------------------------------------------------------------
