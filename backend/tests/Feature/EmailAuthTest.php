@@ -16,7 +16,7 @@ class EmailAuthTest extends TestCase
     public function an_account_can_be_registered(): void
     {
         $response = $this->postJson('/api/auth/register', [
-            'name' => '周宇宏',
+            'name' => '周禹宏',
             'email' => 'louis@example.com',
             'password' => 'correct-horse-battery',
             'password_confirmation' => 'correct-horse-battery',
