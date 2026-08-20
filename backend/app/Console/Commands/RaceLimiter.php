@@ -48,12 +48,12 @@ class RaceLimiter extends Command
 
         // 兩個實作做的事完全一樣，差別只在「判斷與遞減是不是同一個原子動作」。
         $attempt = $naive
-            ? fn () => $this->naiveAttempt($scope, $limit, 60_000)
-            : fn () => $limiter->attempt($scope)->allowed;
+            ? fn() => $this->naiveAttempt($scope, $limit, 60_000)
+            : fn() => $limiter->attempt($scope)->allowed;
 
-        $codes = $this->race($racers, fn () => $attempt() ? 0 : 1);
+        $codes = $this->race($racers, fn() => $attempt() ? 0 : 1);
 
-        $allowed = count(array_filter($codes, fn ($c) => $c === 0));
+        $allowed = count(array_filter($codes, fn($c) => $c === 0));
 
         $this->line(sprintf(
             '%s  limit=%d  racers=%d  放行=%d  擋下=%d',

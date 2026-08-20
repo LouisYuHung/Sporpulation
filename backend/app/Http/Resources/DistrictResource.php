@@ -18,7 +18,7 @@ class DistrictResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
-            'postal_code' => $this->whenLoaded('postalCode', fn () => $this->postalCode?->code),
+            'postal_code' => $this->whenLoaded('postalCode', fn() => $this->postalCode?->code),
             'city' => new CityResource($this->whenLoaded('city')),
         ];
     }

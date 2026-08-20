@@ -36,7 +36,7 @@ class SlidingWindowLimiterTest extends TestCase
         $limiter = $this->limiter(limit: 3);
 
         $decisions = array_map(
-            fn () => $limiter->attempt('user:1'),
+            fn() => $limiter->attempt('user:1'),
             range(1, 4),
         );
 
@@ -56,7 +56,7 @@ class SlidingWindowLimiterTest extends TestCase
         $limiter = $this->limiter(limit: 3);
 
         $decisionUserOne = array_map(
-            fn () => $limiter->attempt('user:1'),
+            fn() => $limiter->attempt('user:1'),
             range(1, 4),
         );
 
@@ -72,7 +72,7 @@ class SlidingWindowLimiterTest extends TestCase
         $limiter = $this->limiter(limit: 3, windowMs: 60_000);
 
         $decisions = array_map(
-            fn () => $limiter->attempt('user:1'),
+            fn() => $limiter->attempt('user:1'),
             range(1, 4),
         );
 

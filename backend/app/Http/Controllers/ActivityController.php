@@ -27,11 +27,11 @@ class ActivityController extends Controller
             ->with(self::relations($request))
             ->when(
                 isset($filters['sport_id']),
-                fn (Builder $query) => $query->where('sport_id', $filters['sport_id'])
+                fn(Builder $query) => $query->where('sport_id', $filters['sport_id'])
             )
             ->when(
                 isset($filters['district_id']),
-                fn (Builder $query) => $query->where('district_id', $filters['district_id'])
+                fn(Builder $query) => $query->where('district_id', $filters['district_id'])
             )
             ->paginate($filters['per_page'] ?? 15)
             ->withQueryString();
@@ -79,7 +79,7 @@ class ActivityController extends Controller
         $relations = ['host', 'sport', 'district.city'];
 
         if ($user = $request->user()) {
-            $relations['registrations'] = fn ($query) => $query->where('user_id', $user->id);
+            $relations['registrations'] = fn($query) => $query->where('user_id', $user->id);
         }
 
         return $relations;

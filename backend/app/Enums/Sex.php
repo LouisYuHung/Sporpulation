@@ -17,7 +17,7 @@ enum Sex: int
      */
     public function label(): string
     {
-        return __('enums.sex.'.strtolower($this->name));
+        return __('enums.sex.' . strtolower($this->name));
     }
 
     /**
@@ -28,7 +28,7 @@ enum Sex: int
     public static function options(): array
     {
         return array_map(
-            fn (self $sex) => ['value' => $sex->value, 'label' => $sex->label()],
+            fn(self $sex) => ['value' => $sex->value, 'label' => $sex->label()],
             self::cases(),
         );
     }

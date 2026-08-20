@@ -31,7 +31,7 @@ class ActivityRegistrationFactory extends Factory
 
     public function cancelled(): static
     {
-        return $this->state(fn () => [
+        return $this->state(fn() => [
             'status' => RegistrationStatus::Cancelled,
             'cancelled_at' => now(),
         ]);

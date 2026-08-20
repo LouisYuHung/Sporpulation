@@ -21,7 +21,7 @@ class SportResource extends JsonResource
 
             // 只有透過使用者的 sports 樞紐表取得時才會出現；
             // 公開的運動清單沒有等級。
-            'level' => $this->whenPivotLoaded('user_sports', fn () => $this->pivot->level),
+            'level' => $this->whenPivotLoaded('user_sports', fn() => $this->pivot->level),
         ];
     }
 }

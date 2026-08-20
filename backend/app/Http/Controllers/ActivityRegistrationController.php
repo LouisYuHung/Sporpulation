@@ -25,10 +25,10 @@ class ActivityRegistrationController extends Controller
         $registrations = $request->user()->registrations()
             ->when(
                 isset($filters['status']),
-                fn ($query) => $query->where('activity_registrations.status', $filters['status']),
-                fn ($query) => $query->confirmed(),
+                fn($query) => $query->where('activity_registrations.status', $filters['status']),
+                fn($query) => $query->confirmed(),
             )
-            ->with(['activity' => fn ($query) => $query->with(ActivityController::relations($request))])
+            ->with(['activity' => fn($query) => $query->with(ActivityController::relations($request))])
             // 依使用者實際要下場的時間排序，而不是依報名的時間。
             ->join('activities', 'activities.id', '=', 'activity_registrations.activity_id')
             ->orderBy('activities.starts_at')

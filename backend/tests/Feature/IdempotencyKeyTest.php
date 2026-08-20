@@ -236,7 +236,7 @@ class IdempotencyKeyTest extends TestCase
             'capacity' => 10,
         ];
 
-        $create = fn () => $this->actingAs($user)
+        $create = fn() => $this->actingAs($user)
             ->withHeader('Idempotency-Key', self::KEY)
             ->postJson('/api/activities', $payload);
 
