@@ -1,3 +1,8 @@
 .DS_Store
 .idea
-.vscode
+
+# 排除目錄「內容」而不是目錄本身：寫成 .vscode 的話 git 不會走進這個目錄，底下
+# 的否定規則就永遠不會被套用。**/ 是為了維持「任何層級都排除」—— 含斜線的樣式
+# 只錨定在本檔案所在的那一層，少了它 frontend/.vscode 就會漏出來。
+**/.vscode/*
+!/.vscode/settings.json

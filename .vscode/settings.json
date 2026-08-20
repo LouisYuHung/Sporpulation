@@ -1,0 +1,15 @@
+{
+  // PHP 交給 Pint 格式化。少了 defaultFormatter 這行，formatOnSave 會落回
+  // Intelephense / PHP Tools 之類的內建格式化器，而它們的規則跟 Pint 相反
+  // （'a'.$b vs 'a' . $b、fn () vs fn()），每次存檔都會把 Pint 的成果改掉。
+  "[php]": {
+    "editor.defaultFormatter": "open-southeners.laravel-pint",
+    "editor.formatOnSave": true
+  },
+
+  // Pint 裝在 backend/ 底下，而 workspace 根目錄是 repo 根。
+  "laravel-pint.executablePath": "backend/vendor/bin/pint",
+
+  // 只格式化真的存在於磁碟上的檔案，別去動 diff 檢視、git 暫存區之類的虛擬文件。
+  "laravel-pint.enableUnsupportedSchemes": false
+}
