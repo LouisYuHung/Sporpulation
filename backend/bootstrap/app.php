@@ -2,8 +2,10 @@
 
 use App\Exceptions\ConflictException;
 use App\Exceptions\ResourceNotFoundException;
+use App\Exceptions\TooManyRequestsException;
 use App\Http\Middleware\EnsureIdempotentRequest;
 use App\Http\Middleware\SetLocale;
+use App\Http\Middleware\ThrottleRegistration;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
@@ -31,6 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // 往返成本。
         $middleware->alias([
             'idempotent' => EnsureIdempotentRequest::class,
+            'throttle.registration' => ThrottleRegistration::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
