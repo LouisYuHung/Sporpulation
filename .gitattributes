@@ -1,0 +1,10 @@
+# 行尾由 repo 決定，不由每台機器的 core.autocrlf 決定。
+#
+# 少了這個，一台設了 core.autocrlf=true 的機器 checkout 出來就是 CRLF，而 Pint
+# 的 line_ending fixer 會把檔案正規化回 LF —— 於是 pre-commit hook 對每個檔案
+# 都失敗，所有 commit 被擋。規則放進 repo 才擋得住這件事，跟 pint.json 之於
+# preset 是同一個道理。
+#
+# backend/ 底下另有一份（Laravel skeleton 內建），額外帶著 diff= 與
+# export-ignore 規則；這一份負責 repo 根目錄與 frontend/。
+* text=auto eol=lf
