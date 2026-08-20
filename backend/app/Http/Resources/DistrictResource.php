@@ -2,11 +2,12 @@
 
 namespace App\Http\Resources;
 
+use App\Models\District;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * @mixin \App\Models\District
+ * @mixin District
  */
 class DistrictResource extends JsonResource
 {
@@ -18,7 +19,7 @@ class DistrictResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
-            'postal_code' => $this->whenLoaded('postalCode', fn() => $this->postalCode?->code),
+            'postal_code' => $this->whenLoaded('postalCode', fn () => $this->postalCode?->code),
             'city' => new CityResource($this->whenLoaded('city')),
         ];
     }

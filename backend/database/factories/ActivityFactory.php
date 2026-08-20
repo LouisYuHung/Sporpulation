@@ -39,7 +39,7 @@ class ActivityFactory extends Factory
      */
     public function withCapacity(int $seats): static
     {
-        return $this->state(fn() => ['capacity' => $seats]);
+        return $this->state(fn () => ['capacity' => $seats]);
     }
 
     /**
@@ -47,7 +47,7 @@ class ActivityFactory extends Factory
      */
     public function started(): static
     {
-        return $this->state(fn() => [
+        return $this->state(fn () => [
             'starts_at' => now()->subHour(),
             'ends_at' => now()->addHour(),
         ]);

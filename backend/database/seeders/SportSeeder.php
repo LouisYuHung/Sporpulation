@@ -55,7 +55,7 @@ class SportSeeder extends Seeder
     public function run(): void
     {
         $existing = Sport::all()->keyBy(
-            fn(Sport $sport) => $sport->getTranslation('name', 'zh-TW')
+            fn (Sport $sport) => $sport->getTranslation('name', 'zh-TW')
         );
 
         foreach (self::SPORTS as $zh => $en) {

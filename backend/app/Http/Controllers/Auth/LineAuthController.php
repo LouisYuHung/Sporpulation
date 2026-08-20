@@ -17,7 +17,7 @@ class LineAuthController extends Controller
     public function redirect(): JsonResponse
     {
         // LINE 要求一定要帶 `state` 參數，即使我們並不驗證它
-        //（stateless 模式會略過以 CSRF／session 為基礎的 state 驗證）。
+        // （stateless 模式會略過以 CSRF／session 為基礎的 state 驗證）。
         $url = Socialite::driver('line')
             ->stateless()
             ->with(['state' => Str::random(40)])
@@ -56,6 +56,6 @@ class LineAuthController extends Controller
 
         $token = $user->createToken('line-login')->plainTextToken;
 
-        return redirect(config('app.frontend_url') . '/auth/callback?token=' . $token);
+        return redirect(config('app.frontend_url').'/auth/callback?token='.$token);
     }
 }

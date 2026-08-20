@@ -25,7 +25,7 @@ return new class extends Migration
             $table->timestamps();
 
             // 報名的冪等鍵：重送的請求會在這裡發生衝突，而不是佔走第二個名額
-            //（見 Activity::join()）。
+            // （見 Activity::join()）。
             $table->unique(['activity_id', 'user_id']);
 
             $table->index(['user_id', 'status']);

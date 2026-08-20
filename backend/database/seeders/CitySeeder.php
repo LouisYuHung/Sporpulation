@@ -48,7 +48,7 @@ class CitySeeder extends Seeder
     public function run(): void
     {
         $existing = City::all()->keyBy(
-            fn(City $city) => $city->getTranslation('name', 'zh-TW')
+            fn (City $city) => $city->getTranslation('name', 'zh-TW')
         );
 
         foreach (self::CITIES as $zh => $en) {

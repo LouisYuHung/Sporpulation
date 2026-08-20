@@ -20,9 +20,8 @@ class SlidingWindowLimiterTest extends TestCase
         try {
             Redis::connection('idempotency')->ping();
         } catch (Throwable $e) {
-            $this->markTestSkipped('Redis unavailable: ' . $e->getMessage());
+            $this->markTestSkipped('Redis unavailable: '.$e->getMessage());
         }
-
 
         // 每個測試都從乾淨狀態開始，否則前一個測試留下的紀錄會讓後一個莫名失敗。
         // db 15 由 phpunit.xml 的 REDIS_IDEMPOTENCY_DB 指定 - 指錯就會清掉開發
@@ -36,7 +35,7 @@ class SlidingWindowLimiterTest extends TestCase
         $limiter = $this->limiter(limit: 3);
 
         $decisions = array_map(
-            fn() => $limiter->attempt('user:1'),
+            fn () => $limiter->attempt('user:1'),
             range(1, 4),
         );
 
@@ -56,7 +55,7 @@ class SlidingWindowLimiterTest extends TestCase
         $limiter = $this->limiter(limit: 3);
 
         $decisionUserOne = array_map(
-            fn() => $limiter->attempt('user:1'),
+            fn () => $limiter->attempt('user:1'),
             range(1, 4),
         );
 
@@ -72,7 +71,7 @@ class SlidingWindowLimiterTest extends TestCase
         $limiter = $this->limiter(limit: 3, windowMs: 60_000);
 
         $decisions = array_map(
-            fn() => $limiter->attempt('user:1'),
+            fn () => $limiter->attempt('user:1'),
             range(1, 4),
         );
 

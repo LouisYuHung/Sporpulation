@@ -25,7 +25,7 @@ return new class extends Migration
 
             // 已確認報名數的反正規化計數。activity_registrations 仍是唯一事實
             // 來源；這個欄位存在的目的，是讓佔用名額能用單一條件式 UPDATE 完成
-            //（見 Activity::claimSeat()）。使用 unsigned 也能讓下溢直接爆錯，
+            // （見 Activity::claimSeat()）。使用 unsigned 也能讓下溢直接爆錯，
             // 而不是無聲地繞回成一個極大的數字。
             $table->unsignedSmallInteger('joined_count')->default(0);
 

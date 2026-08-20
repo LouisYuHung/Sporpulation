@@ -46,7 +46,7 @@ class CheckSeatConcurrency extends Command
             return self::FAILURE;
         }
 
-        $this->warn('Writing throwaway records to the ' . DB::getDefaultConnection() . ' connection.');
+        $this->warn('Writing throwaway records to the '.DB::getDefaultConnection().' connection.');
 
         $sport = Sport::factory()->create();
         $district = District::factory()->create();
@@ -72,7 +72,7 @@ class CheckSeatConcurrency extends Command
 
         $codes = $this->race(
             $racers,
-            fn(int $i) => $this->attemptJoin($activity, $users[$i])
+            fn (int $i) => $this->attemptJoin($activity, $users[$i])
         );
 
         $granted = count(array_keys($codes, 0));
@@ -93,11 +93,11 @@ class CheckSeatConcurrency extends Command
         $activity = Activity::factory()->withCapacity(10)->create($seed);
         $user = User::factory()->create();
 
-        $codes = $this->race(20, fn() => $this->attemptJoin($activity, $user));
+        $codes = $this->race(20, fn () => $this->attemptJoin($activity, $user));
 
-        $this->check('no retry errored', count(array_keys($codes, 2)) === 0, 'errors=' . count(array_keys($codes, 2)));
+        $this->check('no retry errored', count(array_keys($codes, 2)) === 0, 'errors='.count(array_keys($codes, 2)));
         $this->check('the retries took exactly one seat', $this->seatCount($activity) === 1, $this->tally($activity));
-        $this->check('the retries wrote exactly one row', $activity->registrations()->count() === 1, 'rows=' . $activity->registrations()->count());
+        $this->check('the retries wrote exactly one row', $activity->registrations()->count() === 1, 'rows='.$activity->registrations()->count());
     }
 
     /**
@@ -127,7 +127,7 @@ class CheckSeatConcurrency extends Command
             return 0;
         });
 
-        $this->check('no churn worker errored', count(array_keys($codes, 2)) === 0, 'errors=' . count(array_keys($codes, 2)));
+        $this->check('no churn worker errored', count(array_keys($codes, 2)) === 0, 'errors='.count(array_keys($codes, 2)));
         $this->check('counter never drifted from reality', $this->seatCount($activity) === $this->confirmedRows($activity), $this->tally($activity));
         $this->check('counter stayed within capacity', $this->seatCount($activity) <= 3, $this->tally($activity));
     }
@@ -218,6 +218,6 @@ class CheckSeatConcurrency extends Command
 
     private function reportUnexpected(Throwable $e): void
     {
-        fwrite(STDERR, 'unexpected: ' . $e::class . ': ' . $e->getMessage() . "\n");
+        fwrite(STDERR, 'unexpected: '.$e::class.': '.$e->getMessage()."\n");
     }
 }

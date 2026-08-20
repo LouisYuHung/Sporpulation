@@ -436,14 +436,14 @@ class DistrictSeeder extends Seeder
      */
     public function run(): void
     {
-        $cityIds = City::all()->mapWithKeys(fn(City $city) => [
+        $cityIds = City::all()->mapWithKeys(fn (City $city) => [
             $city->getTranslation('name', 'zh-TW') => $city->id,
         ]);
 
         $existing = District::all()
             ->groupBy('city_id')
-            ->map(fn($districts) => $districts->keyBy(
-                fn(District $district) => $district->getTranslation('name', 'zh-TW')
+            ->map(fn ($districts) => $districts->keyBy(
+                fn (District $district) => $district->getTranslation('name', 'zh-TW')
             ));
 
         foreach (self::DISTRICTS as $cityZh => $districts) {
