@@ -2,6 +2,7 @@
 
 use App\Exceptions\ConflictException;
 use App\Exceptions\ResourceNotFoundException;
+use App\Http\Middleware\SetLocale;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
@@ -60,6 +61,13 @@ return Application::configure(basePath: dirname(__DIR__))
             'message' => $e->getMessage(),
             'code' => $e->errorCode(),
         ], 409));
+
+        // 被限流擋下。getHeaders() 帶著 Retry-After - 少了它，呼叫端只知道「不行」，
+        // 不知道什麼時候可以再試，於是只能盲目重試，反而把限流當成節拍器在打。
+        $exceptions->render(fn(TooManyRequestsException $e) => response()->json([
+            'message' => $e->getMessage(),
+            'code' => $e->errorCode(),
+        ], 429, $e->getHeaders()));
 
         // 框架自己的 404（路由未匹配、route model binding 失敗）帶有像
         // 「No query results for model [...]」這類內部英文文字，絕不能傳到

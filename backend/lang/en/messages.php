@@ -38,4 +38,8 @@ return [
         'invalid' => 'The idempotency key is not a valid length.',
     ],
 
+    'throttle' => [
+        'too_many' => 'Too many registration attempts. Please try again shortly.',
+    ],
+
 ];
