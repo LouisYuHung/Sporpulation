@@ -39,29 +39,54 @@ class SlidingWindowLimiter
 
     public function attempt(string $scope): LimiterDecision
     {
-        // 時間由 PHP 傳入而不是問 Redis - 這樣測試才能用 travel() 撥動時鐘。
+        // 時間由 PHP 傳入而不是在 Lua 裡問 Redis - 這樣測試才能用 travel() 撥動時鐘。
         $now = now()->getTimestampMs();
 
-        $redis = Redis::connection($this->connection);
-        $key = $this->key($scope);
+        // 判斷與遞減包在同一段 script 裡：Redis 單執行緒執行 Lua，因此整段不會被
+        // 別的用戶端插隊。這跟名額用條件式 UPDATE 是同一招 - 由資料儲存本身裁決，
+        // 而不是在 PHP 裡先讀再寫。
+        [$allowed, $remaining, $retryAfter] = Redis::connection($this->connection)->eval(
+            $this->script(),
+            1,                          // KEYS 的數量
+            $this->key($scope),         // KEYS[1]
+            $now,                       // ARGV[1]
+            $this->windowMs,            // ARGV[2]
+            $this->limit,               // ARGV[3]
+            (string) Str::uuid(),       // ARGV[4]
+        );
 
-        // ⚠️ 這一版刻意是非原子的：三次獨立往返，中間留著空隙。Step 1.3 會用
-        //    併發把它打破，1.4 才換成 Lua。
-        $redis->zremrangebyscore($key, 0, $now - $this->windowMs);
+        return new LimiterDecision((bool) $allowed, (int) $remaining, (int) $retryAfter);
+    }
 
-        $used = (int) $redis->zcard($key);
+    /**
+     * KEYS[1] - 這個 scope 的視窗
+     * ARGV[1] - 現在（毫秒）
+     * ARGV[2] - 視窗長度（毫秒）
+     * ARGV[3] - 上限
+     * ARGV[4] - 這次嘗試的唯一 member
+     *
+     * 回傳 { 是否放行, 剩餘額度, 還要等幾秒 }。Redis 協定沒有布林值 - Lua 回
+     * false 會變成 nil 而不是 0，所以一律回 0/1 讓 PHP 端自己轉。
+     */
+    private function script(): string
+    {
+        return <<<'LUA'
+        local now, window, limit = tonumber(ARGV[1]), tonumber(ARGV[2]), tonumber(ARGV[3])
 
-        if ($used >= $this->limit) {
-            // 丟棄式程式碼，不必算精確的 retryAfter - 1.4 的 Lua 會做對。
-            return new LimiterDecision(false, 0, (int) ($this->windowMs / 1000));
-        }
+        redis.call('ZREMRANGEBYSCORE', KEYS[1], 0, now - window)
 
-        // member 必須唯一：拿 $now 當 member 的話，同一毫秒的兩次嘗試會互相覆蓋
-        // （ZSET 的 member 唯一），額度就少算了。
-        $redis->zadd($key, $now, (string) Str::uuid());
-        $redis->pexpire($key, $this->windowMs);
+        local used = redis.call('ZCARD', KEYS[1])
 
-        return new LimiterDecision(true, $this->limit - $used - 1, 0);
+        if used >= limit then
+            local oldest = redis.call('ZRANGE', KEYS[1], 0, 0, 'WITHSCORES')
+            return { 0, 0, math.ceil((tonumber(oldest[2]) + window - now) / 1000) }
+        end
+
+        redis.call('ZADD', KEYS[1], now, ARGV[4])
+        redis.call('PEXPIRE', KEYS[1], window)
+
+        return { 1, limit - used - 1, 0 }
+        LUA;
     }
 
     private function key(string $scope): string

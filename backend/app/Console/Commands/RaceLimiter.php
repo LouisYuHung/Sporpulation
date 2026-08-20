@@ -18,7 +18,8 @@ class RaceLimiter extends Command
 {
     protected $signature = 'limiter:race
                             {--limit=5 : 視窗內允許的次數}
-                            {--racers=100 : 同時打進來的行程數}';
+                            {--racers=100 : 同時打進來的行程數}
+                            {--naive : 改用非原子的三段式實作，示範它為什麼不行}';
 
     protected $description = 'Fork simultaneous attempts and count how many the limiter really let through';
 
@@ -31,7 +32,7 @@ class RaceLimiter extends Command
         }
 
         // 每次用新的 scope，否則上一輪的紀錄還在視窗裡，第二次跑就不準了。
-        $scope = 'race:'.Str::random();
+        $scope = 'race:' . Str::random();
 
         $limit = (int) $this->option('limit');
         $racers = (int) $this->option('racers');
@@ -43,12 +44,20 @@ class RaceLimiter extends Command
             windowMs: 60_000,
         );
 
-        $codes = $this->race($racers, fn () => $limiter->attempt($scope)->allowed ? 0 : 1);
+        $naive = (bool) $this->option('naive');
+
+        // 兩個實作做的事完全一樣，差別只在「判斷與遞減是不是同一個原子動作」。
+        $attempt = $naive
+            ? fn () => $this->naiveAttempt($scope, $limit, 60_000)
+            : fn () => $limiter->attempt($scope)->allowed;
+
+        $codes = $this->race($racers, fn () => $attempt() ? 0 : 1);
 
         $allowed = count(array_filter($codes, fn ($c) => $c === 0));
 
         $this->line(sprintf(
-            'limit=%d  racers=%d  放行=%d  擋下=%d',
+            '%s  limit=%d  racers=%d  放行=%d  擋下=%d',
+            $naive ? '非原子' : ' Lua  ',
             $limit,
             $racers,
             $allowed,
@@ -56,6 +65,37 @@ class RaceLimiter extends Command
         ));
 
         return self::SUCCESS;
+    }
+
+    /**
+     * 刻意非原子的實作，只為了讓那個空隙可以被觀察。
+     *
+     * 與 SlidingWindowLimiter 唯一的差別是：判斷與遞減拆成三次獨立往返，中間
+     * 隔著網路延遲。兩個同時抵達的嘗試會讀到同一個 ZCARD 計數、各自認為還有
+     * 額度。它在單一行程下完全正確 - 這正是它危險的地方。
+     */
+    private function naiveAttempt(string $scope, int $limit, int $windowMs): bool
+    {
+        $now = now()->getTimestampMs();
+
+        // 跟 SlidingWindowLimiter 一樣在方法內部才取連線 - fork 出來的子行程
+        // 必須各自開連線，見 race()。
+        $redis = Redis::connection('idempotency');
+
+        $key = "throttle:naive:{$scope}";
+
+        $redis->zremrangebyscore($key, 0, $now - $windowMs);
+
+        $used = (int) $redis->zcard($key);
+
+        if ($used >= $limit) {
+            return false;
+        }
+
+        $redis->zadd($key, $now, (string) Str::uuid());
+        $redis->pexpire($key, $windowMs);
+
+        return true;
     }
 
     /**

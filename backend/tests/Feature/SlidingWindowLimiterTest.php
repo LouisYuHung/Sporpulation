@@ -87,7 +87,27 @@ class SlidingWindowLimiterTest extends TestCase
         $this->assertTrue($limiter->attempt('user:1')->allowed);
     }
 
-    // 測試 4（retryAfter）也放這裡，只是等 1.4 改完 Lua 再寫
+    #[Test]
+    public function a_blocked_attempt_reports_when_to_retry(): void
+    {
+        // 凍結時鐘，讓「20 秒」真的是 20 秒。不凍結的話第一次 attempt 用的是
+        // 一直在走的真實時間，跟 travel() 的起點差幾毫秒 - 大多數時候會被
+        // math.ceil 吸收掉，但那種「大多數時候會過」的測試就是 flaky test。
+        $this->freezeTime();
+
+        $limiter = $this->limiter(limit: 1, windowMs: 60_000);
+
+        $limiter->attempt('user:1');        // t=0 進入視窗，t=60 才離開
+
+        $this->travel(20)->seconds();
+
+        $decision = $limiter->attempt('user:1');
+
+        $this->assertFalse($decision->allowed);
+
+        // 從視窗裡最舊那筆算出來的，不是笨笨地回一個視窗長度 - 回 60 這裡就紅。
+        $this->assertSame(40, $decision->retryAfter);
+    }
 
     private function limiter(int $limit = 5, int $windowMs = 60_000): SlidingWindowLimiter
     {
