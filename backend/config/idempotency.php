@@ -34,4 +34,13 @@ return [
     'min_length' => 8,
     'max_length' => 255,
 
+    /*
+    | Redis 後端的位置。獨立的連線（db 2）而不是 cache 連線（db 1）—— Cache::flush()
+    | 對 Redis 的實作是 FLUSHDB，共用的話 cache:clear 會連冪等紀錄一起清掉。
+    */
+    'redis' => [
+        'connection' => 'idempotency',
+        'prefix' => 'idem:',
+    ],
+
 ];
