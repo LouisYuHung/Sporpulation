@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Exceptions\IdempotencyKeyReusedException;
 use App\Exceptions\RequestInProgressException;
 use App\Idempotency\IdempotencyStore;
+use App\Idempotency\IdempotencyStoreFactory;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -31,27 +32,29 @@ class EnsureIdempotentRequest
         Response::HTTP_TOO_MANY_REQUESTS,
     ];
 
-    public function __construct(private IdempotencyStore $store) {}
+    public function __construct(private IdempotencyStoreFactory $stores) {}
 
-    public function handle(Request $request, Closure $next): Response
+    public function handle(Request $request, Closure $next, ?string $storeName = null): Response
     {
         $key = $request->header(config('idempotency.header'));
         $user = $request->user();
 
-        // 讀取請求、未選擇啟用的用戶端，以及開放訪客的路由都不需要處理 - 紀錄是
-        // 以使用者為範圍的。
         if ($key === null || $user === null || $request->isMethodSafe()) {
             return $next($request);
         }
 
         $this->validateKey($key);
 
+        // 後端由路由決定（例如 idempotent:redis），沒指定就用 config 的預設值。
+        // 這個選擇是風險分級，不是效能調校 - 見 routes/api.php。
+        $store = $this->stores->make($storeName);
+
         $scope = (string) $user->getAuthIdentifier();
         $fingerprint = $this->fingerprint($request);
 
         // 佔位被別人搶走了：不是第一個請求還在執行中，就是它已經完成、答案已存檔。
-        if (! $this->store->claim($scope, $key, $fingerprint)) {
-            return $this->replay($scope, $key, $fingerprint);
+        if (! $store->claim($scope, $key, $fingerprint)) {
+            return $this->replay($store, $scope, $key, $fingerprint);
         }
 
         try {
@@ -60,12 +63,12 @@ class EnsureIdempotentRequest
             // 路由管線通常會在例外傳到這裡之前就把它轉成回應，因此這裡只涵蓋漏網
             // 之魚。無論如何佔位都必須釋放，否則用戶端重試時會一直收到「處理中」，
             // 直到紀錄過期為止。
-            $this->store->release($scope, $key);
+            $store->release($scope, $key);
 
             throw $e;
         }
 
-        $this->remember($scope, $key, $response);
+        $this->remember($store, $scope, $key, $response);
 
         return $response;
     }
@@ -73,9 +76,9 @@ class EnsureIdempotentRequest
     /**
      * 以別人已經寫下的紀錄來回應。
      */
-    private function replay(string $scope, string $key, string $fingerprint): Response
+    private function replay(IdempotencyStore $store, string $scope, string $key, string $fingerprint): Response
     {
-        $record = $this->store->find($scope, $key);
+        $record = $store->find($scope, $key);
 
         // 在佔位失敗到這次讀取之間紀錄被刪除了 - 原本持有者已經放棄，因此呼叫端
         // 大可從頭重試一次。
@@ -111,17 +114,17 @@ class EnsureIdempotentRequest
      * 用戶端在整個 TTL 期間被釘死在一個過時的「不行」上，即使名額後來釋出也一樣，
      * 因此直接丟棄紀錄，讓重試取得全新的答案。5xx 也是如此，因為結果根本無從得知。
      */
-    private function remember(string $scope, string $key, Response $response): void
+    private function remember(IdempotencyStore $store, string $scope, string $key, Response $response): void
     {
         $status = $response->getStatusCode();
 
         if ($status >= 500 || in_array($status, self::RELEASED_STATUSES, true)) {
-            $this->store->release($scope, $key);
+            $store->release($scope, $key);
 
             return;
         }
 
-        $this->store->complete(
+        $store->complete(
             $scope,
             $key,
             $status,

@@ -1,5 +1,8 @@
 <?php
 
+use App\Idempotency\DatabaseIdempotencyStore;
+use App\Idempotency\RedisIdempotencyStore;
+
 return [
 
     /*
@@ -33,6 +36,22 @@ return [
     */
     'min_length' => 8,
     'max_length' => 255,
+
+    /*
+    |--------------------------------------------------------------------------
+    | 後端
+    |--------------------------------------------------------------------------
+    |
+    | 沒有明確指定時用哪一個。預設是 database - 安全的方向：新加的路由如果忘了想
+    | 這件事，錯的方向應該是「保護太強」而不是「保護會無聲消失」。
+    |
+    */
+    'default' => env('IDEMPOTENCY_STORE', 'database'),
+
+    'stores' => [
+        'database' => DatabaseIdempotencyStore::class,
+        'redis' => RedisIdempotencyStore::class,
+    ],
 
     /*
     | Redis 後端的位置。獨立的連線（db 2）而不是 cache 連線（db 1）—— Cache::flush()
