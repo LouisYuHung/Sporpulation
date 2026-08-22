@@ -53,6 +53,10 @@ RUN { \
 
 WORKDIR /var/www/html
 
+# 這個容器要不要自己處理佇列。supervisord.conf 讀不到這個變數會直接解析失敗，
+# 因此預設值必須存在於映像裡 —— 單容器部署靠的就是這個 true。
+ENV QUEUE_IN_WEB=true
+
 COPY . .
 COPY --from=vendor /app/vendor ./vendor
 

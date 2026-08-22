@@ -1,3 +1,23 @@
+# web 與 worker 必須跑在完全相同的設定下。兩邊各寫一份環境變數是很難查的 bug 來源 ——
+# 症狀會是「web 連得到 Redis，worker 連不到」，而兩個檔案看起來都沒錯。
+x-backend-env: &backend-env
+    APP_ENV: local
+    APP_DEBUG: "true"
+    FRONTEND_URL: http://localhost:5173
+    DB_CONNECTION: mysql
+    DB_HOST: mysql
+    DB_PORT: 3306
+    DB_DATABASE: sporpulation
+    DB_USERNAME: sporpulation
+    DB_PASSWORD: secret
+    CACHE_STORE: redis
+    QUEUE_CONNECTION: redis
+    SESSION_DRIVER: redis
+    REDIS_CLIENT: phpredis
+    REDIS_HOST: redis
+    REDIS_PORT: 6379
+    REDIS_IDEMPOTENCY_DB: 2
+
 services:
     backend:
         build:
@@ -7,28 +27,48 @@ services:
         ports:
             - "8080:80"
         environment:
-            APP_ENV: local
-            APP_DEBUG: "true"
-            FRONTEND_URL: http://localhost:5173
-            DB_CONNECTION: mysql
-            DB_HOST: mysql
-            DB_PORT: 3306
-            DB_DATABASE: sporpulation
-            DB_USERNAME: sporpulation
-            DB_PASSWORD: secret
-            CACHE_STORE: redis
-            QUEUE_CONNECTION: redis
-            SESSION_DRIVER: redis
-            REDIS_CLIENT: phpredis
-            REDIS_HOST: redis
-            REDIS_PORT: 6379
-            REDIS_IDEMPOTENCY_DB: 2
+            <<: *backend-env
+            # 佇列由獨立的 queue-worker service 處理，因此關掉容器內建的那個。
+            # 單容器部署（Render 等）不設這個變數，映像的預設值 true 會生效。
+            QUEUE_IN_WEB: "false"
         depends_on:
             mysql:
                 condition: service_healthy
             redis:
                 condition: service_healthy
         volumes:
+            - storage_data:/var/www/html/storage
+        healthcheck:
+            # queue-worker 等這個通過才啟動 —— 代表 entrypoint 的 migrate 已經跑完。
+            test: ["CMD", "php", "-r", "exit(@file_get_contents('http://127.0.0.1/up') === false ? 1 : 0);"]
+            interval: 5s
+            timeout: 5s
+            retries: 20
+
+    queue-worker:
+        build:
+            context: ./backend
+            dockerfile: Dockerfile
+        image: sporpulation-backend
+        restart: unless-stopped
+        # 覆寫映像的 CMD（supervisord），entrypoint 仍然會執行。
+        # --max-time 讓行程每小時自我回收：長壽的 PHP worker 會累積記憶體，而且
+        # 會一直抱著啟動當下載入的程式碼。
+        command: php artisan queue:work --tries=3 --max-time=3600
+        environment:
+            <<: *backend-env
+            # migrate 與 seed 是整個叢集做一次的事，但 entrypoint 是每個容器都跑。
+            # 兩個容器同時 migrate 會互相打架 —— 單一容器時看不出來，加第二個才浮現。
+            RUN_MIGRATIONS: "false"
+        depends_on:
+            mysql:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+            backend:
+                condition: service_healthy
+        volumes:
+            # 與 backend 共用：MAIL_MAILER=log 寫在 storage/logs，兩邊要看到同一份。
             - storage_data:/var/www/html/storage
 
     frontend:
