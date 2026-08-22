@@ -4,9 +4,8 @@ namespace App\Http\Middleware;
 
 use App\Exceptions\IdempotencyKeyReusedException;
 use App\Exceptions\RequestInProgressException;
-use App\Models\IdempotencyKey;
+use App\Idempotency\IdempotencyStore;
 use Closure;
-use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
@@ -32,6 +31,8 @@ class EnsureIdempotentRequest
         Response::HTTP_TOO_MANY_REQUESTS,
     ];
 
+    public function __construct(private IdempotencyStore $store) {}
+
     public function handle(Request $request, Closure $next): Response
     {
         $key = $request->header(config('idempotency.header'));
@@ -45,12 +46,12 @@ class EnsureIdempotentRequest
 
         $this->validateKey($key);
 
+        $scope = (string) $user->getAuthIdentifier();
         $fingerprint = $this->fingerprint($request);
-        $record = $this->claim($user->getAuthIdentifier(), $key, $fingerprint);
 
         // 佔位被別人搶走了：不是第一個請求還在執行中，就是它已經完成、答案已存檔。
-        if ($record === null) {
-            return $this->replay($user->getAuthIdentifier(), $key, $fingerprint);
+        if (! $this->store->claim($scope, $key, $fingerprint)) {
+            return $this->replay($scope, $key, $fingerprint);
         }
 
         try {
@@ -59,53 +60,22 @@ class EnsureIdempotentRequest
             // 路由管線通常會在例外傳到這裡之前就把它轉成回應，因此這裡只涵蓋漏網
             // 之魚。無論如何佔位都必須釋放，否則用戶端重試時會一直收到「處理中」，
             // 直到紀錄過期為止。
-            $record->delete();
+            $this->store->release($scope, $key);
 
             throw $e;
         }
 
-        $this->remember($record, $response);
+        $this->remember($scope, $key, $response);
 
         return $response;
     }
 
     /**
-     * 對這把 key 進行佔位；若已被他人持有則回傳 null。
-     *
-     * 插入動作就是原子性的關鍵：unique(user_id, key_hash) 保證並行請求中只會有一個
-     * 勝出，因此重複的請求絕不會同時抵達 controller。這與名額計數器使用的機制相同，
-     * 理由也一樣 - 由資料庫來裁決，而不是在 PHP 裡先讀再寫。
-     */
-    private function claim(int|string $userId, string $key, string $fingerprint): ?IdempotencyKey
-    {
-        try {
-            return IdempotencyKey::create([
-                'user_id' => $userId,
-                'key_hash' => $this->hash($key),
-                'fingerprint' => $fingerprint,
-                'expires_at' => now()->addSeconds(config('idempotency.ttl')),
-            ]);
-        } catch (UniqueConstraintViolationException) {
-            // 已過期的紀錄在清理排程執行前仍佔著這把 key，因此先把它清掉再試一次，
-            // 之後才放棄佔位。
-            $stale = $this->find($userId, $key);
-
-            if ($stale !== null && $stale->hasExpired()) {
-                $stale->delete();
-
-                return $this->claim($userId, $key, $fingerprint);
-            }
-
-            return null;
-        }
-    }
-
-    /**
      * 以別人已經寫下的紀錄來回應。
      */
-    private function replay(int|string $userId, string $key, string $fingerprint): Response
+    private function replay(string $scope, string $key, string $fingerprint): Response
     {
-        $record = $this->find($userId, $key);
+        $record = $this->store->find($scope, $key);
 
         // 在佔位失敗到這次讀取之間紀錄被刪除了 - 原本持有者已經放棄，因此呼叫端
         // 大可從頭重試一次。
@@ -125,7 +95,7 @@ class EnsureIdempotentRequest
 
         return response($record->body, $record->status)
             ->withHeaders(array_filter([
-                'Content-Type' => $record->content_type,
+                'Content-Type' => $record->contentType,
 
                 // 讓用戶端能分辨這是重播還是全新的結果 - 除錯時很有用，
                 // 其餘情況也無害。
@@ -141,28 +111,23 @@ class EnsureIdempotentRequest
      * 用戶端在整個 TTL 期間被釘死在一個過時的「不行」上，即使名額後來釋出也一樣，
      * 因此直接丟棄紀錄，讓重試取得全新的答案。5xx 也是如此，因為結果根本無從得知。
      */
-    private function remember(IdempotencyKey $record, Response $response): void
+    private function remember(string $scope, string $key, Response $response): void
     {
         $status = $response->getStatusCode();
 
         if ($status >= 500 || in_array($status, self::RELEASED_STATUSES, true)) {
-            $record->delete();
+            $this->store->release($scope, $key);
 
             return;
         }
 
-        $record->update([
-            'status' => $status,
-            'body' => $response->getContent(),
-            'content_type' => $response->headers->get('Content-Type'),
-        ]);
-    }
-
-    private function find(int|string $userId, string $key): ?IdempotencyKey
-    {
-        return IdempotencyKey::where('user_id', $userId)
-            ->where('key_hash', $this->hash($key))
-            ->first();
+        $this->store->complete(
+            $scope,
+            $key,
+            $status,
+            $response->getContent(),
+            $response->headers->get('Content-Type'),
+        );
     }
 
     /**

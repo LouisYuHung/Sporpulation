@@ -22,14 +22,6 @@ class IdempotencyKey extends Model
 
     protected $table = 'idempotency_keys';
 
-    /**
-     * 沒有 status 的紀錄，代表這是一個請求尚未完成的佔位。
-     */
-    public function isInProgress(): bool
-    {
-        return $this->status === null;
-    }
-
     public function hasExpired(): bool
     {
         return $this->expires_at->isPast();
