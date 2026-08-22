@@ -15,10 +15,13 @@ return [
     | the server recognise it and replay the original response instead of
     | acting twice.
     |
-    | Records live in the idempotency_keys table, not the cache: the cache gets
-    | cleared as a matter of routine, and losing these would remove the
-    | protection without anything failing loudly. Expired rows are pruned on a
-    | schedule (see routes/console.php).
+    | 紀錄依路由存放在兩種後端之一（見 routes/api.php）。資料庫是預設值，也是安全
+    | 的方向：沒有天然唯一鍵可以退而求其次的寫入 —— 建立活動 —— 完全靠冪等碼，
+    | 因此它的紀錄不能放在會被例行清除或驅逐的地方。
+    |
+    | Redis 留給「已經有第二層防線」的寫入：報名有 unique(activity_id, user_id)
+    | 守著，紀錄遺失只會讓重播退化成重新執行，而不會留下重複資料。差別不在速度，
+    | 在於「紀錄消失時，是誰在兜底」。
     |
     */
 

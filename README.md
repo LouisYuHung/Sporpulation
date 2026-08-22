@@ -42,14 +42,14 @@ npm run dev
 
 ## 活動報名
 
-| Method | Endpoint | 說明 |
-| --- | --- | --- |
-| GET | `/api/activities` | 未開始的活動，可用 `sport_id`、`district_id` 篩選 |
-| POST | `/api/activities` | 開團（需登入） |
-| GET | `/api/activities/{id}` | 活動詳情 |
-| POST | `/api/activities/{id}/registration` | 報名，佔一個名額 |
-| DELETE | `/api/activities/{id}/registration` | 取消報名，釋放名額 |
-| GET | `/api/me/registrations` | 我的報名 |
+| Method | Endpoint                            | 說明                                              |
+| ------ | ----------------------------------- | ------------------------------------------------- |
+| GET    | `/api/activities`                   | 未開始的活動，可用 `sport_id`、`district_id` 篩選 |
+| POST   | `/api/activities`                   | 開團（需登入）                                    |
+| GET    | `/api/activities/{id}`              | 活動詳情                                          |
+| POST   | `/api/activities/{id}/registration` | 報名，佔一個名額                                  |
+| DELETE | `/api/activities/{id}/registration` | 取消報名，釋放名額                                |
+| GET    | `/api/me/registrations`             | 我的報名                                          |
 
 報名與取消都是冪等的：重送同一個請求不會佔到第二個名額，也不會重複釋放。
 名額滿了回 409 `activity_full`，活動已開始回 409 `activity_closed`。
@@ -67,8 +67,13 @@ Idempotency-Key: a3f1c9d2-7b64-4e01-9f2a-8c5d1e0b4a77
 不帶標頭就完全不受影響。同一把 key 用在不同請求會被擋下（409 `idempotency_key_reused`），
 第一個請求還在跑時的重複請求會收到 409 `request_in_progress`。
 
-紀錄存在 `idempotency_keys` 資料表而非快取 —— `cache:clear` 是例行操作，紀錄一旦遺失
-保護就會無聲無息地消失。過期紀錄由排程每小時 `model:prune` 清理。
+紀錄依路由分成兩個後端。**建立活動**存在 `idempotency_keys` 資料表：它沒有天然的唯一鍵
+可以兜底，冪等碼是唯一的保證，而資料表不會被例行清除。**報名／取消**存在 Redis（獨立的
+db，`cache:clear` 碰不到），靠 TTL 自動過期 —— 它背後還有 `unique(activity_id, user_id)`，
+紀錄遺失最多讓重播退化成重新執行，而重新執行會撞上唯一鍵、整筆 rollback。
+
+資料表的過期紀錄由排程每小時 `model:prune` 清理；Redis 那邊不需要，過期是資料儲存本身
+在執行的。
 
 ### 併發驗證
 

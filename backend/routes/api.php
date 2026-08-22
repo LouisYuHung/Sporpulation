@@ -46,32 +46,30 @@ Route::middleware('auth:sanctum')->group(function () {
     // 回應而不是執行第二次。以路由為單位逐條掛而非包成群組 - 見下方報名那條，
     // 群組會奪走對執行順序的控制權。
 
-    // 建立活動完全沒有天然的唯一鍵，否則重試的請求就會留下一筆重複資料。
-    Route::middleware('idempotent')->post('/activities', [ActivityController::class, 'store']);
+    // 建立活動完全沒有天然的唯一鍵：冪等碼是它唯一的保證，因此必須留在不會失效的
+    // 資料庫。Redis 的紀錄可能因為崩潰或記憶體壓力而提前消失，那樣重試就會留下
+    // 第二場活動，而且沒有任何東西會發現。
+    Route::middleware('idempotent:database')->post('/activities', [ActivityController::class, 'store']);
 
     // 從呼叫者的角度看是單數：每個活動他最多只有一筆報名，因此路徑中不需要帶 id。
     Route::prefix('activities/{activity}/registration')->group(function () {
-        // 陣列順序就是執行順序，而這個順序是有意義的：限流必須排在冪等之前。
+        // 報名可以接受 Redis：unique(activity_id, user_id) 是最終保證。Redis 的紀錄
+        // 若遺失，重試會退化成「重新執行」而不是「重播」—— 而重新執行會撞上唯一鍵、
+        // 整筆 rollback、名額還回去。壞掉的是回應的內容，不是資料的正確性。
         //
-        // 反過來的話，每個被擋下的請求仍會先 INSERT 佔一次冪等 key、拿到 429、再
-        // DELETE 釋放（429 列在 EnsureIdempotentRequest::RELEASED_STATUSES 裡），
-        // 兩次資料庫往返全白費 - 而「別讓流量抵達資料庫」正是限流唯一的目的。
+        // 兩層職責不同：Redis 是快而可失效的第一層過濾，唯一鍵是慢而不可失效的
+        // 最終保證。
         //
-        // 也不能改用嵌套群組來表達這個先後：群組 middleware 一律先於路由
-        // middleware，把 idempotent 包成外層群組就會讓它搶在限流前面，不管寫在
-        // 第幾行。兩個都不在 $middlewarePriority 清單裡的 middleware，只有並列在
-        // 同一個 middleware([...]) 陣列裡才控制得住相對順序。
-        //
-        // ThrottleRegistrationTest 用 DB::listen 盯著這件事：順序一改它就會紅，
-        // 並印出那兩句被浪費掉的 SQL。
-
-        // mutation test: 把 idempotent 及 throttle.registration 對調，test 會失敗
-        Route::middleware(['throttle.registration', 'idempotent'])
+        // （陣列順序即執行順序，限流必須排在前面：反過來的話每個被擋下的請求仍會
+        // 先佔一次冪等 key 再釋放，兩次資料庫往返全白費。
+        // ThrottleRegistrationTest::a_throttled_request_never_reaches_the_idempotency_store
+        // 用 DB::listen 盯著這件事。）
+        Route::middleware(['throttle.registration', 'idempotent:redis'])
             ->post('/', [ActivityRegistrationController::class, 'store']);
 
-        // 取消暫不限流：正常使用者「報名後發現時間衝突」會馬上取消，不該吃掉額度。
-        // 代價是報名/取消反覆刷仍然打得到資料庫 —— 那條路徑靠條件式 UPDATE 守著。
-        Route::middleware('idempotent')
+        // 取消同樣有守衛：WHERE status = Confirmed 的條件式 UPDATE 保證一個名額
+        // 只會被釋放一次。
+        Route::middleware('idempotent:redis')
             ->delete('/', [ActivityRegistrationController::class, 'destroy']);
     });
 

@@ -91,22 +91,20 @@ class IdempotencyKeyTest extends TestCase
     #[Test]
     public function a_key_still_in_flight_is_reported_as_in_progress(): void
     {
-        $activity = Activity::factory()->withCapacity(4)->create();
         $user = User::factory()->create();
 
-        $this->join($activity, $user)->assertCreated();
+        $this->createActivity($user)->assertCreated();
 
         // 把已儲存的紀錄倒回該請求仍在執行時的樣子 - 這正是並行的重複請求會看到
         // 的狀態。沿用同一列可以讓測試不必碰 fingerprint 的內部細節。
         IdempotencyKey::query()->update(['status' => null, 'body' => null]);
 
-        $this->join($activity, $user)
+        $this->createActivity($user)
             ->assertStatus(409)
             ->assertJsonPath('code', 'request_in_progress');
 
-        // 被擋下的重試什麼都沒有改變。
-        $this->assertSame(1, $activity->fresh()->joined_count);
-        $this->assertDatabaseCount('activity_registrations', 1);
+        // 被擋下的重試什麼都沒有建立。
+        $this->assertDatabaseCount('activities', 1);
     }
 
     #[Test]
@@ -167,29 +165,29 @@ class IdempotencyKeyTest extends TestCase
     #[Test]
     public function an_expired_record_frees_the_key_for_reuse(): void
     {
-        $activity = Activity::factory()->withCapacity(4)->create();
         $user = User::factory()->create();
 
-        $this->join($activity, $user)->assertCreated();
+        $this->createActivity($user)->assertCreated();
 
         IdempotencyKey::query()->update(['expires_at' => now()->subMinute()]);
 
         // 超過 TTL 之後紀錄已無意義，因此同一把 key 會開啟一個全新的請求，而不是
         // 重播過時的答案。
-        $response = $this->join($activity, $user);
+        $response = $this->createActivity($user);
 
         $response->assertCreated();
         $this->assertNull($response->headers->get('Idempotent-Replay'));
         $this->assertSame(1, IdempotencyKey::count());
+
+        // 保護已經過期，所以第二次真的又建了一場 - 這正是 TTL 的代價。
+        $this->assertDatabaseCount('activities', 2);
     }
 
     #[Test]
     public function expired_records_are_prunable(): void
     {
-        $activity = Activity::factory()->withCapacity(4)->create();
-
-        $this->join($activity, User::factory()->create())->assertCreated();
-        $this->join($activity, User::factory()->create(), 'c1d4e7a0-2b58-4c93-8f6d-1a7e3b9c5d02')->assertCreated();
+        $this->createActivity(User::factory()->create());
+        $this->createActivity(User::factory()->create(), 'c1d4e7a0-2b58-4c93-8f6d-1a7e3b9c5d02');
 
         IdempotencyKey::query()->limit(1)->update(['expires_at' => now()->subDay()]);
 
@@ -236,12 +234,8 @@ class IdempotencyKeyTest extends TestCase
             'capacity' => 10,
         ];
 
-        $create = fn () => $this->actingAs($user)
-            ->withHeader('Idempotency-Key', self::KEY)
-            ->postJson('/api/activities', $payload);
-
-        $first = $create();
-        $second = $create();
+        $first = $this->createActivity($user);
+        $second = $this->createActivity($user);
 
         $first->assertCreated();
         $second->assertCreated();
@@ -257,5 +251,34 @@ class IdempotencyKeyTest extends TestCase
         return $this->actingAs($user)
             ->withHeader('Idempotency-Key', $key)
             ->postJson("/api/activities/{$activity->id}/registration");
+    }
+
+    private ?array $activityPayload = null;
+
+    /**
+     * 打一條綁在 database store 上的路由。
+     *
+     * 建立活動用的是 idempotent:database（沒有天然唯一鍵，見 routes/api.php），
+     * 因此想驗證資料表層級的機制 —— expires_at、model:prune —— 就必須走這條，
+     * 報名那條已經在 Redis 上了。
+     */
+    private function createActivity(User $user, string $key = self::KEY)
+    {
+        // 同一個測試裡重複呼叫必須送出一模一樣的 body：fingerprint 是
+        // method + path + body 的雜湊，body 變了就會被判定成「同一把 key 用在
+        // 不同的請求」而回 409，而不是我們想測的那個結果。
+        $this->activityPayload ??= [
+            'sport_id' => Sport::factory()->create()->id,
+            'district_id' => District::factory()->create()->id,
+            'title' => '週末鬥牛',
+            'location' => '大安運動中心',
+            'starts_at' => now()->addDay()->toIso8601String(),
+            'ends_at' => now()->addDay()->addHours(2)->toIso8601String(),
+            'capacity' => 10,
+        ];
+
+        return $this->actingAs($user)
+            ->withHeader('Idempotency-Key', $key)
+            ->postJson('/api/activities', $this->activityPayload);
     }
 }

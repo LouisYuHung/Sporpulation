@@ -11,9 +11,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * 被記錄下來的寫入操作，讓重試時重播第一次的回應，而不是執行第二次。
  *
- * 刻意存在資料庫而非快取：快取會被例行清除（`cache:clear`、記憶體不足時被驅逐），
- * 而這些紀錄一旦遺失，保護就會無聲無息地消失。建立活動沒有天然的唯一鍵可以退而
- * 求其次，因此這張資料表是它唯一的保證。
+ * 這張表是 DatabaseIdempotencyStore 的儲存，另一個實作 RedisIdempotencyStore 靠
+ * TTL 自動過期。兩者的差別不是效能，而是「紀錄會不會無聲消失」：快取與 Redis 都
+ * 會被例行清除或在記憶體壓力下驅逐，這張表不會。
+ *
+ * 因此沒有天然唯一鍵可以兜底的寫入（建立活動）一律綁在這裡 —— 對它來說冪等碼是
+ * 唯一的保證。分級見 routes/api.php。
  */
 #[Fillable(['user_id', 'key_hash', 'fingerprint', 'status', 'body', 'content_type', 'expires_at'])]
 class IdempotencyKey extends Model
