@@ -41,7 +41,7 @@ return [
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
             'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),
-            'after_commit' => false,
+            'after_commit' => true,
         ],
 
         'beanstalkd' => [
@@ -50,6 +50,8 @@ return [
             'queue' => env('BEANSTALKD_QUEUE', 'default'),
             'retry_after' => (int) env('BEANSTALKD_QUEUE_RETRY_AFTER', 90),
             'block_for' => 0,
+            // database 還是 false —— 現在沒用到那條連線，可是哪天有人為了繞過 Redis
+            // 而切成 QUEUE_CONNECTION=database 除錯，這個 bug 會安靜地回來。
             'after_commit' => false,
         ],
 
@@ -70,7 +72,12 @@ return [
             'queue' => env('REDIS_QUEUE', 'default'),
             'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
             'block_for' => null,
-            'after_commit' => false,
+
+            // Job 押到交易提交之後才真正入列。false 的話，worker 可能在 COMMIT
+            // 之前就撈到 Job，然後查不到那筆還看不見的資料 —— 而且是安靜地失敗，
+            // 因為 Job 本身「成功」了。rollback 的情境同理：Job 會為一件從未發生
+            // 的事執行。
+            'after_commit' => true,
         ],
 
         'deferred' => [
