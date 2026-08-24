@@ -30,8 +30,15 @@ php artisan config:clear
 # 只有一個容器時看不出差別；加上 queue-worker 之後，兩個容器會同時搶著 migrate。
 # 因此由誰負責要明講 —— worker 設 RUN_MIGRATIONS=false，並等 backend 健康檢查
 # 通過（見 docker-compose.yml）才啟動。
+#
+# 但那只是靜態指派，在 backend 擴成多台時就不成立了。--isolated 用一把 cache lock
+# 補上：它的語意是「若另一個實例正在執行就跳過」——互斥，不是「整個叢集只跑一次」。
+# 前一台跑完釋放鎖之後，下一台仍會跑一次。
+#
+# 這樣就夠了，因為真正的保證不在鎖上：migrations 資料表讓每個 migration 一輩子只
+# 套用一次。鎖只負責擋掉「兩台同時 migrate」這個真正危險的情況，不負責擋掉重複執行。
 if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
-    php artisan migrate --force
+    php artisan migrate --force --isolated
 
     # 基礎資料（縣市、行政區、郵遞區號、運動類型）任何環境都會填；示範用的假資料
     # 則由 SEED_DEMO_DATA 控制，預設在非正式環境開啟。所有 seeder 都是冪等的，

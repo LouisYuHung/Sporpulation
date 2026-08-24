@@ -29,7 +29,10 @@ services:
             dockerfile: Dockerfile
         image: sporpulation-backend
         ports:
-            - "8080:80"
+            # 用範圍而不是單一埠，才能 --scale backend=N 起多個節點（第一台拿 8080，
+            # 第二台 8081，以此類推）。正式的水平擴展要在前面放一台反向代理，那是
+            # M4 的事；這裡只是為了讓「每個節點都會跑排程」看得出來。
+            - "8080-8081:80"
         environment:
             <<: *backend-env
             # 佇列由獨立的 queue-worker service 處理，因此關掉容器內建的那個。
