@@ -7,6 +7,7 @@ use App\Idempotency\IdempotencyStoreFactory;
 use App\Models\ActivityRegistration;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Throwable;
 
@@ -25,6 +26,24 @@ class SendRegistrationConfirmation implements ShouldQueue
      * 那邊的 scope 是使用者 id。
      */
     private const SCOPE = 'job:registration-confirmation';
+
+    /**
+     * 重試政策寫在 Job 上，而不是只靠 worker 的 --tries。
+     *
+     * worker 的旗標是所有 Job 的共同預設值，但不同 Job 值得不同的政策：確認信
+     * 三次就夠了；對外的 webhook 可能值得更多次、更長的間隔。政策屬於這件工作
+     * 本身，不屬於執行它的行程。
+     */
+    public int $tries = 3;
+
+    /**
+     * 每次重試之間等幾秒。
+     *
+     * 預設是 0 —— 三次重試會在幾十毫秒內全部用完，對「郵件伺服器斷線幾秒」這種
+     * 最常見的故障完全沒有幫助，只是用最快的速度把 Job 推進死信。拉開間隔才涵蓋
+     * 得到短暫故障的恢復時間。次數超過陣列長度時，Laravel 會重複使用最後一個值。
+     */
+    public array $backoff = [10, 60];
 
     /**
      * 只帶 id，不帶整個模型、也不帶 email。
@@ -98,5 +117,22 @@ class SendRegistrationConfirmation implements ShouldQueue
         } catch (Throwable $e) {
             report($e);
         }
+    }
+
+    /**
+     * 三次都失敗之後。
+     *
+     * 死信的預設行為是安靜地寫進 failed_jobs 表 —— 而那張表沒有人會主動去看。
+     * 至少要在既有的日誌流裡留下一筆帶脈絡的紀錄；正式環境應該把這裡接到告警。
+     *
+     * 「失敗不會無聲消失」是死信機制的重點，光是有一張表並不構成這個保證。
+     */
+    public function failed(Throwable $exception): void
+    {
+        Log::error('報名確認信最終失敗，已進入死信', [
+            'registration_id' => $this->registrationId,
+            'job_uuid' => $this->job?->uuid(),
+            'exception' => $exception->getMessage(),
+        ]);
     }
 }
