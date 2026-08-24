@@ -17,6 +17,13 @@ if [ -z "${APP_KEY:-}" ]; then
     fi
 fi
 
+# 掛載的 volume 會蓋掉映像裡的擁有者設定，而 web 與 worker 共用同一個 storage。
+# 任何一邊用 root 建立的檔案都會讓另一邊寫不進去 —— 症狀是 Laravel 完全寫不出 log，
+# 而錯誤訊息本身也寫不進 log。每次啟動時（此時仍是 root）修正一次。
+if [ "$(id -u)" = "0" ]; then
+    chown -R www-data:www-data storage bootstrap/cache
+fi
+
 php artisan config:clear
 
 # schema 與基礎資料是「整個叢集做一次」的事，但這個 entrypoint 是每個容器都會跑。

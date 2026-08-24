@@ -54,7 +54,16 @@ services:
         # 覆寫映像的 CMD（supervisord），entrypoint 仍然會執行。
         # --max-time 讓行程每小時自我回收：長壽的 PHP worker 會累積記憶體，而且
         # 會一直抱著啟動當下載入的程式碼。
-        command: php artisan queue:work --tries=3 --max-time=3600
+        # --timeout 必須小於 config/queue.php 的 retry_after（90 秒），否則佇列會在
+        # Job 還在跑的時候就重新投遞，同一個 Job 出現兩個行程。這裡寫出來只是為了
+        # 讓這個關係看得見 —— 60 本來就是預設值。
+        #
+        # 降權到 www-data，與 backend 容器裡 supervisord 的 user=www-data 一致：兩邊
+        # 共用同一個 storage volume，任何一邊用 root 建立檔案，另一邊就再也寫不進去。
+        # 用 `su ... exec` 而不是 compose 的 user: —— entrypoint 需要 root 才能建立
+        # .env 與修正 volume 的擁有者，而 exec 會讓 PHP 取代整個行程，Docker 的
+        # SIGTERM 才送得到 queue:work，讓它把手上的 Job 做完再退出。
+        command: su -s /bin/sh www-data -c "exec php artisan queue:work --tries=3 --backoff=10 --timeout=60 --max-time=3600"
         environment:
             <<: *backend-env
             # migrate 與 seed 是整個叢集做一次的事，但 entrypoint 是每個容器都跑。
