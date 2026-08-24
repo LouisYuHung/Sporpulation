@@ -17,6 +17,10 @@ x-backend-env: &backend-env
     REDIS_HOST: redis
     REDIS_PORT: 6379
     REDIS_IDEMPOTENCY_DB: 2
+    MAIL_MAILER: smtp
+    MAIL_HOST: mailpit
+    MAIL_PORT: 1025
+    MAIL_FROM_ADDRESS: no-reply@sporpulation.test
 
 services:
     backend:
@@ -35,6 +39,8 @@ services:
             mysql:
                 condition: service_healthy
             redis:
+                condition: service_healthy
+            mailpit:
                 condition: service_healthy
         volumes:
             - storage_data:/var/www/html/storage
@@ -76,8 +82,11 @@ services:
                 condition: service_healthy
             backend:
                 condition: service_healthy
+            mailpit:
+                condition: service_healthy
         volumes:
-            # 與 backend 共用：MAIL_MAILER=log 寫在 storage/logs，兩邊要看到同一份。
+            # 與 backend 共用：兩邊都會寫 storage/logs，必須是同一份，而且擁有者
+            # 要一致（見 command 的降權說明）。
             - storage_data:/var/www/html/storage
 
     frontend:
@@ -122,6 +131,20 @@ services:
             - redis_data:/data
         healthcheck:
             test: ["CMD", "redis-cli", "ping"]
+            interval: 5s
+            timeout: 5s
+            retries: 10
+
+    # 本機用的真 SMTP 伺服器，收到的信可以在 http://localhost:8025 看。
+    # 用它而不是 MAIL_MAILER=log，是因為 log driver 寫檔案是微秒級的 —— 那樣
+    # 「把寄信搬離請求路徑」的效益會淹沒在雜訊裡，量不出東西來。
+    mailpit:
+        image: axllent/mailpit:latest
+        restart: unless-stopped
+        ports:
+            - "8025:8025"   # Web UI
+        healthcheck:
+            test: ["CMD", "/mailpit", "readyz"]
             interval: 5s
             timeout: 5s
             retries: 10
