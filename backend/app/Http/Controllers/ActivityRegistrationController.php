@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\RegistrationStatus;
 use App\Http\Resources\ActivityRegistrationResource;
 use App\Http\Resources\ActivityResource;
+use App\Jobs\SendRegistrationConfirmation;
 use App\Models\Activity;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -46,7 +47,11 @@ class ActivityRegistrationController extends Controller
      */
     public function store(Request $request, Activity $activity): JsonResponse
     {
-        $activity->join($request->user());
+        $registration = $activity->join($request->user());
+
+        // 非同步邊界就在這一行：上面那句影響資料正確性，必須同步完成；下面這封信
+        // 不影響，因此交給佇列。判準是「這件事失敗了，使用者的報名還算不算數」。
+        SendRegistrationConfirmation::dispatch($registration->id);
 
         return $this->activity($request, $activity)->response()->setStatusCode(201);
     }
