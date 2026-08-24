@@ -441,3 +441,97 @@ p50 相差約 21 倍，兩次重跑的數字幾乎一致。
 
 **非同步邊界買到的不只是「比較快」，是「你的延遲不再取決於別人的延遲」。**
 
+### 叢集裡到底有幾個地方需要分散式鎖
+
+先盤點，再決定。整個系統有十個並行熱點：
+
+**由 MySQL 仲裁 —— 不需要任何外部鎖**
+
+| 位置 | 憑什麼跨節點正確 |
+| --- | --- |
+| `Activity::claimSeat()` | `WHERE joined_count < capacity` 的條件式 UPDATE，檢查與遞增壓成單一敘述 |
+| 報名的 `unique(activity_id, user_id)` | 唯一索引，並行 INSERT 只有一個能成功 |
+| 取消／重新報名的 `WHERE status = …` | 同上，只有真正翻動狀態的那個能動計數器 |
+| `DatabaseIdempotencyStore::claim()` | `unique(user_id, key_hash)` |
+
+**由 Redis 仲裁 —— 也不需要**
+
+| 位置 | 憑什麼 |
+| --- | --- |
+| `SlidingWindowLimiter::attempt()` | Lua script，Redis 單執行緒執行 |
+| `RedisIdempotencyStore::claim()` | Lua script |
+| Job 去重 | 走上面那個 |
+| 多個 worker 搶同一個佇列 | Redis list 的原子 pop，一個 Job 只會給一個 worker |
+
+**真正需要協調的只有兩個**
+
+| 位置 | 為什麼 |
+| --- | --- |
+| `model:prune` 排程 | `schedule:work` 無條件跑在每個 backend 容器裡 → N 個節點清 N 次 |
+| `entrypoint.sh` 的 `migrate` | 每個容器都跑 → N 個節點同時 migrate |
+
+⭐ 而前八項**在 M1 就已經證明過了**。`activities:check-concurrency` fork 出的 100 個獨立
+行程各開自己的 MySQL 連線 —— 從 MySQL 的角度看，這跟 100 台 app 節點是無法區分的。多節點
+唯一多出來的是「節點之間的網路」，但 app 節點彼此完全不通訊，它們只跟 MySQL 和 Redis 講話。
+`idempotency:race` 與 `limiter:race` 同理涵蓋了 Redis 那組。
+
+**當初是為了驗證原子性寫的三個指令，回頭看其實就是跨節點正確性的證明。**
+
+#### 兩節點實測
+
+```bash
+docker compose up -d --build --scale backend=2
+```
+
+把排程暫時改成 `everyMinute()` 之後觀察兩個節點：
+
+```
+無鎖   19:14:00  backend-1  model:prune … 67.25ms DONE
+       19:14:00  backend-2  model:prune … 68.06ms DONE       ← 同一秒跑了兩次
+
+有鎖   19:18:00  backend-1  model:prune … 64.39ms DONE
+                 backend-2  Skipping … because the command already ran on another server.
+```
+
+#### 鎖不是正確性的來源
+
+`migrate --isolated` 的語意是**互斥**，不是「整個叢集只跑一次」—— 前一台釋放鎖之後，
+下一台仍會跑一次。實測兩個節點都印出 `Nothing to migrate`。
+
+這樣就夠了，因為真正的保證不在鎖上：
+
+| | 鎖提供的 | 正確性其實來自 |
+| --- | --- | --- |
+| `migrate --isolated` | 不會兩台同時 migrate | `migrations` 資料表，每個檔案一輩子只套用一次 |
+| `model:prune` + `onOneServer()` | 這一輪只跑一次 | 清理本身冪等，刪的是已過期的列 |
+
+**兩把鎖都是最佳化，不是正確性保證。** 它們失效時系統仍然是對的，只是多做了一次白工。
+
+#### 為什麼不需要 Redlock
+
+`onOneServer()` 底層是 `Cache::lock()`，而 cache 是單一 Redis。它在 failover 時會失效：
+
+```
+節點 A 取得鎖 → 寫進 master
+master 掛掉、replica 升主 → 那筆鎖還沒複製過去（Redis 複製是非同步的）
+節點 B 向新 master 取鎖 → 成功
+兩個節點同時持有「同一把鎖」
+```
+
+Redlock 是官方對此的答案（向 N 個獨立節點取鎖、過半數才算持有），但 Martin Kleppmann 的
+著名反駁指出它依賴時鐘的正確性：只要有 GC 暫停、行程被 SIGSTOP、VM 被暫停或 NTP 調整時鐘，
+持鎖者可能在**自己毫不知情**的情況下超過鎖的有效期，而另一個節點已經合法取得了鎖。antirez
+有回應，爭論至今沒有結論。
+
+重點不是誰對，而是這個更根本的限制：
+
+> **分散式鎖無法同時保證互斥與活性。** 沒有 TTL，持鎖者當機就永久卡死；有了 TTL，就可能
+> 在持鎖者還活著時過期。你只能選一邊。
+
+所以真正的結論不是「該用哪種鎖」，而是：
+
+> 這個叢集裡**沒有任何一個地方的正確性依賴分散式鎖**。鎖只出現在兩個「跑兩次會浪費、但
+> 不會出錯」的位置，因此單一 Redis 的鎖就夠用。佔名額完全沒有用到鎖 —— MySQL 就是仲裁者。
+
+**需要一把完美分散式鎖的系統，通常是設計上還可以再簡化的系統。**
+
