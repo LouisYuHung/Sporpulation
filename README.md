@@ -16,6 +16,12 @@ docker compose up -d --build
 - 收件匣（Mailpit）：http://localhost:8025 —— 本機寄出的信都會落在這裡，不會真的送出去
 - MySQL：localhost:3306
 
+8080 是一台 nginx 負載平衡，後面才是 app 節點；app 節點刻意不對外開埠。要多起幾台：
+
+```bash
+docker compose up -d --build --scale backend=3
+```
+
 佇列的 worker 是獨立的 `queue-worker` service，不跟 web 擠在同一個容器裡。兩者可以各自
 調整數量 —— 報名尖峰與寄信塞車的時間點通常不一樣。
 
