@@ -535,3 +535,111 @@ Redlock 是官方對此的答案（向 N 個獨立節點取鎖、過半數才算
 
 **需要一把完美分散式鎖的系統，通常是設計上還可以再簡化的系統。**
 
+### 三個節點掛負載平衡，正確性有沒有變
+
+`docker compose up -d --build --scale backend=3` 起三個 app 節點，前面掛一台 nginx
+（`least_conn`）。backend 刻意不對外開埠 —— 否則 `--scale` 出來的節點會有一台拿得到直連
+流量、其餘拿不到，壓測結果就沒有意義。
+
+`activities:check-concurrency` 原本是直接呼叫 `$activity->join()`，完全不經過 HTTP。加上
+`--url` 之後，fork 出的請求會打進 LB，走完整的 middleware 堆疊。
+
+#### 先證明流量真的分散了
+
+```bash
+php artisan activities:check-concurrency --capacity=10 --racers=200 --url=http://localhost:8080
+```
+
+| 節點 | 實際處理的 POST |
+| --- | --- |
+| backend-1 | 185 |
+| backend-2 | 194 |
+| backend-3 | 181 |
+
+**這一步不能跳過。** 如果三個節點的計數是 `560 / 0 / 0`，那下面的「零超賣」就什麼都沒
+證明 —— 那只是單機測試換了個包裝。LB 設定裡的 `add_header X-Served-By $upstream_addr`
+就是為此存在的。
+
+#### 零超賣
+
+```
+CONFIG  nodes=3  lb=nginx(least_conn)  racers=200  capacity=10
+
+PASS  seats granted equals capacity        (granted=10 capacity=10)
+PASS  losers got a clean 409, not an error (rejected=190 errors=0)
+PASS  counter agrees with confirmed rows   (joined_count=10 confirmed_rows=10)
+PASS  the retries took exactly one seat    (joined_count=1 confirmed_rows=1)
+PASS  counter never drifted from reality   (joined_count=0 confirmed_rows=0)
+PASS  counter stayed within capacity
+```
+
+加了兩台節點與一台負載平衡，正確性**一個字都沒變** —— 因為它從來不是由「只有一台機器」
+這個假設支撐的，而是由 MySQL 的條件式 UPDATE 與唯一索引支撐的。
+
+兩種模式留著都有用，它們隔離的變數不同：
+
+| | 證明的事 |
+| --- | --- |
+| 行程內（無 `--url`） | **資料庫的保證**。沒有 middleware、沒有限流干擾 |
+| HTTP（`--url`） | **整條路徑的保證**。經過 LB、三個節點、完整 middleware |
+
+在 HTTP 模式下，429 與 409 同樣算「乾淨的拒絕」而不是錯誤 —— 兩者都代表請求被明確擋下、
+什麼都沒壞。限流在這條路徑上是系統的一部分，不是干擾。
+
+#### 加一台負載平衡，順手削弱了一個保護
+
+`bootstrap/app.php` 原本沒有設定 `trustProxies`，所以 Laravel 不信任 `X-Forwarded-For`：
+
+```
+模擬 lb 轉來的請求（真實用戶端 203.0.113.9，lb 自己 172.18.0.9）
+middleware 執行前: 172.18.0.9
+middleware 執行後: 203.0.113.9   ← 設定 trustProxies 之後
+```
+
+沒有這行設定時，**全世界的請求都變成同一個來源 IP**。報名的限流綁在 user id 上所以沒事，
+但 `/auth/register` 與 `/auth/login` 用的是 Laravel 內建的 `throttle:10,1`，對未登入請求
+是**按 IP** 計數的：
+
+- 「每個 IP 每分鐘 10 次」變成「**全世界每分鐘 10 次**」
+- 正常使用者互相踩額度，而攻擊者可以用 10 次/分鐘癱瘓所有人的登入
+
+一台負載平衡器，把一個保護變成了一個攻擊面。而 `trustProxies(at: '*')` 的安全性完全建立
+在「app 節點無法被直連」這個前提上 —— 哪天有人為了除錯把 backend 的埠開出去，攻擊者就能
+偽造 `X-Forwarded-For` 繞過所有按 IP 的限流。
+
+#### 吞吐與延遲，以及一個被推翻的假設 ⭐
+
+```
+THROUGHPUT  105 req/s   （200 個請求 / 1.91 秒）
+LATENCY     p50=1255ms  p95=1840ms  p99=1873ms  max=1883ms
+```
+
+p50 超過一秒，明顯太慢。查到 `pm.max_children = 5`（`php:fpm-alpine` 的預設值），於是有了
+一個看起來很合理的假設：
+
+```
+假設   3 節點 × 5 = 15 個 worker，要消化 200 個併發請求
+算術   200 / 15 ≈ 每個 worker 排 13 輪，每輪約 90ms ≈ 1.2 秒
+       ↑ 與量到的 p50=1255ms 幾乎完全吻合
+行動   改成 pm = static / max_children = 20（15 → 60 個 worker）
+結果   90 req/s、112 req/s ── 與改之前的 105 同屬雜訊範圍，沒有變快
+追查   壓測期間三個節點的 CPU 全程低於 10%，MySQL 低於 5%
+結論   瓶頸從來不在 php-fpm
+```
+
+真正的瓶頸是**壓測用戶端**：200 個 forked PHP 行程，每個都要複製整個 Laravel 的記憶體、
+建立自己的 Guzzle client、做 DNS 與 TCP 握手。這些成本全部被算進了「延遲」，但它們是
+用戶端的成本。
+
+**所以這組吞吐與延遲不能當作系統的上限 —— 它量到的是壓測工具的上限。** 要量出系統真正的
+天花板，需要 k6 或 wrk 這類用連線池、非阻塞 I/O 的工具，而且要跑在另一台機器上。
+
+而那個吻合到 1255ms 的算術，是這一段真正的教訓：
+
+> **一個吻合的算術不構成證據。** 兩個獨立的錯誤（錯的瓶頸假設、錯的請求耗時估計）可以
+> 相乘出一個看起來完美的答案。唯一能區分的方法是：改動它，然後看數字有沒有動。
+
+`pm.max_children = 20` 最後保留了下來 —— 因為 5 對任何真實節點都太低，依「max_children ×
+單一行程大小 ≤ 節點記憶體」推算是合理的工程判斷。但 Dockerfile 的註解明講了它**沒有被本機
+的數據支持**，真正該回頭調它的時機是上線後觀察到 fpm 的請求佇列積壓。
+
