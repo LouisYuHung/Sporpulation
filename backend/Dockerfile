@@ -62,10 +62,27 @@ RUN { \
 # 5 個與 20 個 worker 的吞吐都落在 90-112 req/s 的雜訊範圍內，而三個節點的 CPU 全程
 # 低於 10% —— 瓶頸在壓測用戶端（200 個 forked 行程各自建 Guzzle client），不在 fpm。
 # 真正該回頭調它的時機，是節點上線後觀察到 fpm 的請求佇列積壓。
+#
+# 下面三個是為了讓 JSON log 能完整地離開容器：
+#
+# catch_workers_output — 預設 fpm 不接管子行程的 stdout/stderr，Laravel 寫到
+#   php://stderr 的東西會直接消失。開了它，log 才會被 fpm 轉送到自己的 stderr，
+#   supervisord 再轉送到 Docker。
+# decorate_workers_output — 預設 fpm 會把每一行包成
+#   `WARNING: [pool www] child 8 said into stderr: "..."`。那層裝飾會讓每一行
+#   都不再是合法 JSON，jq 直接解析失敗。
+# log_limit — 預設 1024 bytes 就截斷。帶 context 的 log 很容易超過，而截斷過的
+#   JSON 是壞掉的 JSON —— 這種錯誤只會發生在「內容比較長」的那幾筆，剛好就是
+#   出事時你最想看的那幾筆。
 RUN { \
+        echo '[global]'; \
+        echo 'log_limit = 8192'; \
+        echo ''; \
         echo '[www]'; \
         echo 'pm = static'; \
         echo 'pm.max_children = 20'; \
+        echo 'catch_workers_output = yes'; \
+        echo 'decorate_workers_output = no'; \
     } > /usr/local/etc/php-fpm.d/zz-pool.conf
 
 WORKDIR /var/www/html

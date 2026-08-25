@@ -23,6 +23,9 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
+        <!-- 測試不需要 log 輸出。少了這行，.env.example 的 stderr channel 會讓
+             每一筆 Log::error 都印進測試輸出裡，真正的失敗訊息會被淹掉。 -->
+        <env name="LOG_CHANNEL" value="null"/>
         <env name="DB_CONNECTION" value="sqlite"/>
         <env name="DB_DATABASE" value=":memory:"/>
         <env name="DB_URL" value=""/>
