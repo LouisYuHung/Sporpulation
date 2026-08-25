@@ -10,7 +10,9 @@ use App\Models\District;
 use App\Models\Sport;
 use App\Models\User;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Throwable;
 
 /**
@@ -26,14 +28,29 @@ class CheckSeatConcurrency extends Command
 {
     protected $signature = 'activities:check-concurrency
                             {--capacity=5 : Seats on the contested activity}
-                            {--racers=40 : Processes stampeding it}';
-
-    protected $description = 'Fork overlapping join/cancel requests and verify no seat is double-sold';
+                            {--racers=40 : Processes stampeding it}
+                            {--url= : 打進這個位址（例如 http://localhost:8080）而不是直接呼叫模型}';
 
     private bool $failed = false;
 
+    /**
+     * 空字串代表行程內模式：直接呼叫 $activity->join()，完全不經過 HTTP。
+     *
+     * 兩種模式證明的是不同的東西。行程內模式隔離出資料庫的保證 —— 沒有 middleware、
+     * 沒有限流、沒有負載平衡的變數。--url 模式打進 lb，才是真正的跨節點併發，但它
+     * 量到的是整條路徑，包括限流會（正確地）擋掉一部分重試。
+     */
+    private string $url = '';
+
     public function handle(): int
     {
+        $this->url = rtrim((string) $this->option('url'), '/');
+
+        $this->warn('Writing throwaway records to the '.DB::getDefaultConnection().' connection.');
+        $this->line($this->url === ''
+            ? 'MODE  in-process（直接呼叫模型，隔離資料庫的保證）'
+            : "MODE  http → {$this->url}（跨節點，含完整 middleware 堆疊）");
+
         if (! function_exists('pcntl_fork')) {
             $this->error('This command needs the pcntl extension.');
 
@@ -45,8 +62,6 @@ class CheckSeatConcurrency extends Command
 
             return self::FAILURE;
         }
-
-        $this->warn('Writing throwaway records to the '.DB::getDefaultConnection().' connection.');
 
         $sport = Sport::factory()->create();
         $district = District::factory()->create();
@@ -70,10 +85,8 @@ class CheckSeatConcurrency extends Command
         $activity = Activity::factory()->withCapacity($capacity)->create($seed);
         $users = User::factory()->count($racers)->create();
 
-        $codes = $this->race(
-            $racers,
-            fn (int $i) => $this->attemptJoin($activity, $users[$i])
-        );
+        $tokens = $this->tokensFor($users);
+        $codes = $this->race($racers, fn (int $i) => $this->attemptJoin($activity, $users[$i], $tokens[$i] ?? null));
 
         $granted = count(array_keys($codes, 0));
         $rejected = count(array_keys($codes, 1));
@@ -93,7 +106,8 @@ class CheckSeatConcurrency extends Command
         $activity = Activity::factory()->withCapacity(10)->create($seed);
         $user = User::factory()->create();
 
-        $codes = $this->race(20, fn () => $this->attemptJoin($activity, $user));
+        $tokens = $this->tokensFor(collect([$user]));
+        $codes = $this->race(20, fn () => $this->attemptJoin($activity, $user, $tokens[0] ?? null));
 
         $this->check('no retry errored', count(array_keys($codes, 2)) === 0, 'errors='.count(array_keys($codes, 2)));
         $this->check('the retries took exactly one seat', $this->seatCount($activity) === 1, $this->tally($activity));
@@ -109,17 +123,13 @@ class CheckSeatConcurrency extends Command
         $activity = Activity::factory()->withCapacity(3)->create($seed);
         $users = User::factory()->count(12)->create();
 
-        $codes = $this->race(12, function (int $i) use ($activity, $users) {
+        $tokens = $this->tokensFor($users);
+        $codes = $this->race(12, function (int $i) use ($activity, $users, $tokens) {
             for ($n = 0; $n < 5; $n++) {
-                try {
-                    $fresh = $activity->fresh();
-                    $fresh->join($users[$i]);
-                    $fresh->cancel($users[$i]);
-                } catch (ConflictException) {
-                    // 此刻剛好額滿；這是合理的結果。
-                } catch (Throwable $e) {
-                    $this->reportUnexpected($e);
-
+                if ($this->attemptJoin($activity, $users[$i], $tokens[$i] ?? null) === 2) {
+                    return 2;
+                }
+                if ($this->attemptCancel($activity, $users[$i], $tokens[$i] ?? null) === 2) {
                     return 2;
                 }
             }
@@ -135,14 +145,35 @@ class CheckSeatConcurrency extends Command
     /**
      * @return int 0 報名成功、1 被拒絕、2 非預期的失敗
      */
-    private function attemptJoin(Activity $activity, User $user): int
+    private function attemptJoin(Activity $activity, User $user, ?string $token = null): int
     {
+        if ($this->url !== '') {
+            return $this->httpAttempt('POST', $activity, $token);
+        }
+
         try {
             $activity->fresh()->join($user);
 
             return 0;
         } catch (ConflictException) {
             return 1;
+        } catch (Throwable $e) {
+            $this->reportUnexpected($e);
+
+            return 2;
+        }
+    }
+
+    private function attemptCancel(Activity $activity, User $user, ?string $token = null): int
+    {
+        if ($this->url !== '') {
+            return $this->httpAttempt('DELETE', $activity, $token);
+        }
+
+        try {
+            $activity->fresh()->cancel($user);
+
+            return 0;
         } catch (Throwable $e) {
             $this->reportUnexpected($e);
 
@@ -219,5 +250,41 @@ class CheckSeatConcurrency extends Command
     private function reportUnexpected(Throwable $e): void
     {
         fwrite(STDERR, 'unexpected: '.$e::class.': '.$e->getMessage()."\n");
+    }
+
+    /**
+     * 走完整的 HTTP 路徑：負載平衡 → 某個 app 節點 → middleware → controller。
+     *
+     * 429 算成「乾淨的拒絕」而不是錯誤，跟 409 同一類 —— 兩者都代表請求被明確擋下、
+     * 而且什麼都沒壞。限流在這條路徑上是系統的一部分，不是干擾。
+     */
+    private function httpAttempt(string $method, Activity $activity, string $token): int
+    {
+        try {
+            $response = Http::withToken($token)
+                ->acceptJson()
+                ->timeout(30)
+                ->send($method, "{$this->url}/api/activities/{$activity->id}/registration");
+
+            return match ($response->status()) {
+                200, 201 => 0,
+                409, 429 => 1,
+                default => 2,
+            };
+        } catch (Throwable $e) {
+            $this->reportUnexpected($e);
+
+            return 2;
+        }
+    }
+
+    /**
+     * @return list<string> 與 $users 同索引；行程內模式回傳空陣列
+     */
+    private function tokensFor(Collection $users): array
+    {
+        return $this->url === ''
+            ? []
+            : $users->map(fn (User $u) => $u->createToken('concurrency-check')->plainTextToken)->all();
     }
 }

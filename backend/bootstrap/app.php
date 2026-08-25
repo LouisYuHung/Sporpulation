@@ -22,6 +22,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // 所有流量都經過 lb（backend 刻意不對外開埠），因此 X-Forwarded-For 是可信的。
+        // 這個 '*' 的安全性完全建立在「app 節點無法被直連」這個前提上 —— 哪天有人
+        // 為了除錯把 backend 的埠開出去，攻擊者就能偽造來源 IP、繞過所有按 IP 的限流。
+        $middleware->trustProxies(at: '*');
+
         $middleware->redirectGuestsTo(fn () => null);
 
         // 註冊為全域而非附加在 api 群組上：像 auth:sanctum 這類路由 middleware
