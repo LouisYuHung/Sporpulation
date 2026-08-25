@@ -13,6 +13,8 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Redis;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -95,6 +97,8 @@ class CheckSeatConcurrency extends Command
         $this->check('seats granted equals capacity', $granted === $capacity, "granted={$granted} capacity={$capacity}");
         $this->check('losers got a clean 409, not an error', $rejected === $racers - $capacity && $errored === 0, "rejected={$rejected} errors={$errored}");
         $this->check('counter agrees with confirmed rows', $this->seatCount($activity) === $this->confirmedRows($activity), $this->tally($activity));
+
+        $this->reportPerformance($racers);
     }
 
     /**
@@ -182,27 +186,43 @@ class CheckSeatConcurrency extends Command
     }
 
     /**
-     * 在同一個實際時間點同時執行 $count 份 $work，並收集它們的結束代碼。
+     * 最近一次 race 的每個請求耗時（毫秒），以及從對齊時間點算起的實際牆鐘秒數。
      *
-     * @param  callable(int): int  $work
-     * @return list<int>
+     * 用屬性而不是回傳值，是為了不動 race() 既有的簽章（三個情境都在用）。這是
+     * 一次性的診斷指令，不是常駐服務，所以這點可變狀態是可以接受的。
+     *
+     * @var list<float>
      */
+    private array $timings = [];
+
+    private float $elapsedSeconds = 0.0;
+
     private function race(int $count, callable $work): array
     {
         $startAt = microtime(true) + 1.0;
         $pids = [];
 
+        // 子行程無法用 exit code 回傳浮點數（只有 0-255），因此耗時走 Redis 交回來。
+        $metrics = 'race:timings:'.Str::random();
+        Redis::connection('idempotency')->del($metrics);
+
         for ($i = 0; $i < $count; $i++) {
             $pid = pcntl_fork();
 
             if ($pid === 0) {
-                // 繼承而來的連線會與所有兄弟行程共用，因此每個子行程在碰資料庫
-                // 之前都先開自己的連線。
                 DB::purge();
+                Redis::purge('idempotency');
 
                 usleep((int) max(0, ($startAt - microtime(true)) * 1_000_000));
 
-                exit($work($i));
+                // 計時從對齊之後才開始 —— 那一秒的等待不屬於請求的延遲。
+                $began = hrtime(true);
+                $code = $work($i);
+                $elapsed = (hrtime(true) - $began) / 1_000_000;
+
+                Redis::connection('idempotency')->rpush($metrics, (string) $elapsed);
+
+                exit($code);
             }
 
             $pids[] = $pid;
@@ -214,6 +234,13 @@ class CheckSeatConcurrency extends Command
             pcntl_waitpid($pid, $status);
             $codes[] = pcntl_wexitstatus($status);
         }
+
+        // 吞吐的分母是「所有請求同時開始」到「最後一個結束」，不含 fork 的成本。
+        $this->elapsedSeconds = microtime(true) - $startAt;
+
+        $redis = Redis::connection('idempotency');
+        $this->timings = array_map('floatval', $redis->lrange($metrics, 0, -1));
+        $redis->del($metrics);
 
         return $codes;
     }
@@ -286,5 +313,36 @@ class CheckSeatConcurrency extends Command
         return $this->url === ''
             ? []
             : $users->map(fn (User $u) => $u->createToken('concurrency-check')->plainTextToken)->all();
+    }
+
+    private function reportPerformance(int $requests): void
+    {
+        if ($this->timings === []) {
+            return;
+        }
+
+        sort($this->timings);
+
+        $this->line(sprintf(
+            'THROUGHPUT  %.0f req/s   （%d 個請求 / %.2f 秒）',
+            $requests / max($this->elapsedSeconds, 0.001),
+            $requests,
+            $this->elapsedSeconds,
+        ));
+
+        $this->line(sprintf(
+            'LATENCY     p50=%.1fms  p95=%.1fms  p99=%.1fms  max=%.1fms',
+            $this->percentile(50),
+            $this->percentile(95),
+            $this->percentile(99),
+            end($this->timings),
+        ));
+    }
+
+    private function percentile(float $p): float
+    {
+        $index = (int) ceil($p / 100 * count($this->timings)) - 1;
+
+        return $this->timings[max(0, min($index, count($this->timings) - 1))];
     }
 }
