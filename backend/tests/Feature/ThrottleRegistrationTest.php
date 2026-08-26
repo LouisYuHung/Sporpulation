@@ -2,12 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Idempotency\RedisIdempotencyStore;
 use App\Models\Activity;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 use PHPUnit\Framework\Attributes\Test;
+use Tests\Support\RecordingIdempotencyStore;
 use Tests\TestCase;
 use Throwable;
 
@@ -95,28 +96,39 @@ class ThrottleRegistrationTest extends TestCase
     {
         config(['rate_limits.registration.limit' => 1]);
 
+        $store = $this->spyOnTheRegistrationStore();
+
         $activity = Activity::factory()->withCapacity(10)->create();
         $user = User::factory()->create();
 
+        // 一定要帶 Idempotency-Key：沒帶的話 EnsureIdempotentRequest 會直接放行，
+        // 不管順序如何都不會碰 store，這個測試就變成永遠通過。
         $this->join($activity, $user, self::KEY)->assertCreated();
 
-        $queries = [];
-        // 注意是 function () use (&$queries)，不能用 fn () —— 箭頭函式是值捕獲，
-        // 在裡面 append 不會影響外面的陣列。
-        DB::listen(function ($query) use (&$queries) {
-            $queries[] = $query->sql;
-        });
+        // 先確立前提：正常的請求確實會碰到 store。少了這行，替身沒被裝上去
+        // （容器綁錯、factory 改成別的解析方式）也一樣是綠的。
+        $this->assertNotSame([], $store->calls, '替身沒有被裝上去，後面那句斷言等於沒測');
 
-        // 一定要帶 Idempotency-Key：沒帶的話 EnsureIdempotentRequest 會直接放行，
-        // 不管順序如何都不會碰資料表，這個測試就變成永遠通過。
+        $store->forgetCalls();
+
         $this->join($activity, $user, self::KEY.'-second')->assertStatus(429);
 
-        $touched = array_values(array_filter(
-            $queries,
-            fn (string $sql) => str_contains($sql, 'idempotency_keys'),
-        ));
+        $this->assertSame([], $store->calls, '限流必須擋在冪等之前，否則被擋的請求仍會佔位再釋放');
+    }
 
-        $this->assertSame([], $touched, '限流必須擋在冪等之前，否則被擋的請求仍會佔位再釋放');
+    /**
+     * 把報名路由用的冪等 store 換成會記帳的替身。
+     *
+     * 路由掛的是 idempotent:redis，IdempotencyStoreFactory 是拿類別名去問容器要
+     * 實例的，所以把那個類別綁成我們的物件就換得掉 —— 不必動到 config 或路由。
+     */
+    private function spyOnTheRegistrationStore(): RecordingIdempotencyStore
+    {
+        $spy = new RecordingIdempotencyStore($this->app->make(RedisIdempotencyStore::class));
+
+        $this->app->instance(RedisIdempotencyStore::class, $spy);
+
+        return $spy;
     }
 
     private function join(Activity $activity, User $user, ?string $key = null)
