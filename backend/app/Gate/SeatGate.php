@@ -59,6 +59,30 @@ class SeatGate
         return redis.call('INCR', KEYS[1])
     LUA;
 
+    private const RECONCILE = <<<'LUA'
+        local remaining = redis.call('GET', KEYS[1])
+
+        -- 沒有閘門就不必對帳。這裡刻意不建立 —— 建立是「第一個請求抵達」的事，
+        -- 對帳只負責校正已經存在的東西。憑空建起來會讓每一個沒有流量的活動都
+        -- 佔著記憶體。
+        if not remaining then
+            return 0
+        end
+
+        local truth = tonumber(ARGV[1])
+        local before = tonumber(remaining)
+
+        if before == truth then
+            return 0
+        end
+
+        -- KEEPTTL：閘門的壽命從建立那一刻算起，對帳不該替它續命。否則熱門活動的
+        -- 閘門永遠不會過期重建，也就少了一條自動回頭看真相的路徑。
+        redis.call('SET', KEYS[1], truth, 'KEEPTTL')
+
+        return truth - before
+    LUA;
+
     public function __construct(private readonly RedisFactory $redis) {}
 
     public function admit(Activity $activity): GateDecision
@@ -113,6 +137,32 @@ class SeatGate
         $value = $this->connection()->get($this->key($activity));
 
         return $value === null ? null : (int) $value;
+    }
+
+    /**
+     * 拿資料庫的真相校正閘門，回傳修正的差額。
+     *
+     * 正數 = 閘門原本比實際嚴格（正在誤殺使用者，這是真正要修的方向）。
+     * 負數 = 閘門原本比實際寬鬆（只是削峰效果變差）。
+     * 0    = 本來就準，或這個活動根本沒有閘門。
+     *
+     * 「讀資料庫」與「寫 Redis」之間的空隙不需要保護：這段期間發生的扣減會被覆蓋
+     * 掉，結果是閘門比實際寬鬆 —— 而寫進去的值就是資料庫此刻的空位數，所以它
+     * 永遠不可能變得比真相嚴格。往安全的方向偏，因此不需要 CAS 或版本號。
+     */
+    public function reconcile(Activity $activity): int
+    {
+        $current = Activity::query()
+            ->whereKey($activity->getKey())
+            ->first(['capacity', 'joined_count']);
+
+        if ($current === null) {
+            return 0;
+        }
+
+        $truth = max(0, (int) $current->capacity - (int) $current->joined_count);
+
+        return $this->run(self::RECONCILE, $activity, [(string) $truth]);
     }
 
     /**

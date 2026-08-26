@@ -69,6 +69,18 @@ return [
             'labels' => ['decision'],
         ],
 
+        'gate_drift_total' => [
+            'type' => 'counter',
+            'help' => '對帳修正掉的名額數，依漂移方向分類。too_strict 是會誤殺使用者的那個方向。',
+            'labels' => ['direction'],
+        ],
+
+        'gate_reconciliations_total' => [
+            'type' => 'counter',
+            'help' => '對帳檢查過的閘門數，依有沒有發現漂移分類。',
+            'labels' => ['result'],
+        ],
+
         'confirmation_mail_total' => [
             'type' => 'counter',
             'help' => '確認信 Job 的結果。',

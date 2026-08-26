@@ -21,3 +21,16 @@ Artisan::command('inspire', function () {
 Schedule::command('model:prune', ['--model' => [IdempotencyKey::class]])
     ->hourly()
     ->onOneServer();
+
+// 入場閘門是第二個真相來源，它一定會跟資料庫漂移。這個排程就是承認那件事：
+// 定期拿 MySQL 的數字把閘門校正回來，並且把漂移量記成指標。
+//
+// 五分鐘一次，比清理密集得多，因為漂移的其中一個方向（閘門比實際嚴格）是在
+// 持續誤殺使用者 —— 而那件事不會有任何錯誤訊息，只會表現成「明明有位子卻報不
+// 進去」。修正的延遲上限就是這個間隔。
+//
+// 同樣掛 onOneServer()，理由也一樣：對帳是冪等的（把閘門設成資料庫此刻的空位數），
+// 雙跑最多是第二個節點發現「已經準了」。鎖只負責省掉重複的工作，不負責正確性。
+Schedule::command('gate:reconcile')
+    ->everyFiveMinutes()
+    ->onOneServer();
