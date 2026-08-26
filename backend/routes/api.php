@@ -4,6 +4,7 @@ use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\ActivityRegistrationController;
 use App\Http\Controllers\Auth\EmailAuthController;
 use App\Http\Controllers\Auth\LineAuthController;
+use App\Http\Controllers\MetricsController;
 use App\Http\Controllers\RegionController;
 use App\Http\Controllers\SportController;
 use App\Http\Controllers\UserAreaController;
@@ -18,6 +19,10 @@ Route::get('/ping', function () {
         'timestamp' => now()->toIso8601String(),
     ]);
 });
+
+// 給 Prometheus 抓的。刻意不套用任何冪等或限流中介層 —— 抓取本身不改變狀態，
+// 而被自己的限流擋下的監控端點是最沒有用的那種監控。
+Route::get('/metrics', MetricsController::class);
 
 Route::prefix('auth')->group(function () {
     Route::prefix('line')->group(function () {
@@ -64,7 +69,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // 先佔一次冪等 key 再釋放，兩次資料庫往返全白費。
         // ThrottleRegistrationTest::a_throttled_request_never_reaches_the_idempotency_store
         // 用 DB::listen 盯著這件事。）
-        Route::middleware(['throttle.registration', 'idempotent:redis'])
+        Route::middleware(['metrics.registration', 'throttle.registration', 'idempotent:redis'])
             ->post('/', [ActivityRegistrationController::class, 'store']);
 
         // 取消同樣有守衛：WHERE status = Confirmed 的條件式 UPDATE 保證一個名額

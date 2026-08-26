@@ -5,6 +5,7 @@ use App\Exceptions\ResourceNotFoundException;
 use App\Exceptions\TooManyRequestsException;
 use App\Http\Middleware\AssignRequestId;
 use App\Http\Middleware\EnsureIdempotentRequest;
+use App\Http\Middleware\RecordRegistrationMetrics;
 use App\Http\Middleware\SetLocale;
 use App\Http\Middleware\ThrottleRegistration;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -44,6 +45,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // 往返成本。
         $middleware->alias([
             'idempotent' => EnsureIdempotentRequest::class,
+            'metrics.registration' => RecordRegistrationMetrics::class,
             'throttle.registration' => ThrottleRegistration::class,
         ]);
     })

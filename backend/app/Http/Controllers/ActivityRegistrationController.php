@@ -6,6 +6,7 @@ use App\Enums\RegistrationStatus;
 use App\Http\Resources\ActivityRegistrationResource;
 use App\Http\Resources\ActivityResource;
 use App\Jobs\SendRegistrationConfirmation;
+use App\Metrics\MetricRegistry;
 use App\Models\Activity;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -45,9 +46,26 @@ class ActivityRegistrationController extends Controller
      * 具冪等性：重送同一個請求會回傳同一個活動與同樣的 joined_count，因為報名紀錄
      * 本身是以 (activity_id, user_id) 為鍵。活動額滿或已開始時回應 409。
      */
-    public function store(Request $request, Activity $activity): JsonResponse
+    public function store(Request $request, Activity $activity, MetricRegistry $metrics): JsonResponse
     {
-        $registration = $activity->join($request->user());
+        // 只量 join() 這一段，不量整個請求。整個請求的耗時 nginx 的存取紀錄已經
+        // 有了；這裡要看的是「搶名額那個條件式 UPDATE 在壓力下變多慢」，那是
+        // nginx 看不到、也是唯一真正跟併發有關的一段。
+        $startedAt = hrtime(true);
+        $outcome = 'rejected';
+
+        try {
+            $registration = $activity->join($request->user());
+            $outcome = 'granted';
+        } finally {
+            // finally 而不是在成功之後才記：搶輸的那些請求正是延遲最有可能異常的
+            // 一群，把它們排除掉會讓圖表在最需要它的時候變得好看。
+            $metrics->observe(
+                'seat_claim_duration_seconds',
+                ['outcome' => $outcome],
+                (hrtime(true) - $startedAt) / 1e9,
+            );
+        }
 
         // 非同步邊界就在這一行：上面那句影響資料正確性，必須同步完成；下面這封信
         // 不影響，因此交給佇列。判準是「這件事失敗了，使用者的報名還算不算數」。
