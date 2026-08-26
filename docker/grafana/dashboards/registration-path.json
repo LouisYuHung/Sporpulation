@@ -137,6 +137,57 @@
             "targets": [
                 { "refId": "A", "expr": "up{job=\"sporpulation\"}", "legendFormat": "{{instance}}" }
             ]
+        },
+        {
+            "type": "timeseries",
+            "title": "入場閘門的判斷（每秒）",
+            "description": "shed 那條就是削峰：那些請求連一句寫入 SQL 都沒有產生。unknown 代表閘門無法判斷（Redis 不可達或被關掉）而選擇放行 —— 它持續不為零就是在說「削峰其實沒有在運作」，但使用者不會察覺，因為 MySQL 仍然擋得住。",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 9, "w": 12, "x": 0, "y": 17 },
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "reqps",
+                    "min": 0,
+                    "custom": { "fillOpacity": 20, "lineWidth": 2, "stacking": { "mode": "normal" } }
+                },
+                "overrides": []
+            },
+            "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["max", "sum"] } },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "sum by (decision) (rate(sporpulation_gate_decisions_total[30s]))",
+                    "legendFormat": "{{decision}}"
+                }
+            ]
+        },
+        {
+            "type": "timeseries",
+            "title": "對帳修正掉的漂移（每小時累計）",
+            "description": "閘門是第二個真相來源，一定會跟資料庫漂移。兩個方向刻意分開：too_strict 代表閘門比實際嚴格，也就是明明有位子卻拒絕使用者 —— 這條要設告警。too_generous 只代表削峰效果變差，知道就好。合在一起就沒辦法對前者設門檻。",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 9, "w": 12, "x": 12, "y": 17 },
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "short",
+                    "min": 0,
+                    "custom": { "fillOpacity": 20, "lineWidth": 2, "drawStyle": "bars" }
+                },
+                "overrides": [
+                    {
+                        "matcher": { "id": "byName", "options": "too_strict" },
+                        "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }]
+                    }
+                ]
+            },
+            "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["max", "sum"] } },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "sum by (direction) (increase(sporpulation_gate_drift_total[1h]))",
+                    "legendFormat": "{{direction}}"
+                }
+            ]
         }
     ]
 }
