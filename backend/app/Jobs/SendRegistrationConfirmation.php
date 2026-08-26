@@ -91,6 +91,12 @@ class SendRegistrationConfirmation implements ShouldQueue
         // 「至少一次」，消費者就該跟它站在同一邊。付款那類 Job 的答案不一樣，
         // 因此那時要重新問一次「哪一種失敗比較痛」。
         $this->markHandled($store, $key);
+
+        // 成功也要留紀錄。只記失敗的系統，回答不了「這封信到底寄了沒」——
+        // 而那是使用者實際會問的問題。request_id 由上面的 Queue::before 自動帶上。
+        Log::info('報名確認信已送出', [
+            'registration_id' => $registration->id,
+        ]);
     }
 
     /**
