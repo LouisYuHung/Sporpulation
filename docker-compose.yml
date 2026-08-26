@@ -17,6 +17,7 @@ x-backend-env: &backend-env
     REDIS_HOST: redis
     REDIS_PORT: 6379
     REDIS_IDEMPOTENCY_DB: 2
+    REDIS_METRICS_DB: 3
     # 每一行 log 都是一個 JSON 物件，寫到 stderr 交給 Docker 收集。
     # `docker compose logs backend | jq` 就能查，不必再進容器 tail 檔案。
     LOG_CHANNEL: stderr

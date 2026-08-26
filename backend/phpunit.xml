@@ -36,5 +36,6 @@
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
         <env name="REDIS_IDEMPOTENCY_DB" value="15"/>
+        <env name="REDIS_METRICS_DB" value="14"/>
     </php>
 </phpunit>

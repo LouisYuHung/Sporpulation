@@ -212,6 +212,23 @@ return [
             'backoff_base' => env('REDIS_BACKOFF_BASE', 100),
             'backoff_cap' => env('REDIS_BACKOFF_CAP', 1000),
         ],
+
+        // 指標另開一個 db，理由和冪等紀錄那個一樣：它們的生命週期完全不同。
+        // 指標要活得比任何一次部署久（計數器歸零在 Prometheus 眼中是一次重啟），
+        // 而 cache 是隨時可以被清掉的。混在同一個 db 裡，一次 FLUSHDB 就同時
+        // 毀掉兩者，而且事後分不出來是誰清的。
+        'metrics' => [
+            'url' => env('REDIS_URL'),
+            'host' => env('REDIS_HOST', '127.0.0.1'),
+            'username' => env('REDIS_USERNAME'),
+            'password' => env('REDIS_PASSWORD'),
+            'port' => env('REDIS_PORT', '6379'),
+            'database' => env('REDIS_METRICS_DB', '3'),
+            'max_retries' => env('REDIS_MAX_RETRIES', 3),
+            'backoff_algorithm' => env('REDIS_BACKOFF_ALGORITHM', 'decorrelated_jitter'),
+            'backoff_base' => env('REDIS_BACKOFF_BASE', 100),
+            'backoff_cap' => env('REDIS_BACKOFF_CAP', 1000),
+        ],
     ],
 
 ];
