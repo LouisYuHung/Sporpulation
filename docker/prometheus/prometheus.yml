@@ -1,0 +1,28 @@
+global:
+    # 預設是 15 秒。本機的壓測只有幾十秒，15 秒的間隔會讓整場尖峰只留下兩三個點，
+    # 圖表上看起來像雜訊而不是尖峰。
+    #
+    # 代價是儲存量與抓取負載都變成三倍。正式環境沒有理由這樣設 —— 這個值是為了
+    # 「用一張圖說明一件事」而調的，不是為了長期監控。
+    scrape_interval: 5s
+    evaluation_interval: 15s
+
+scrape_configs:
+    - job_name: sporpulation
+      metrics_path: /api/metrics
+
+      static_configs:
+          # 直接抓 backend，不經過 lb —— lb 已經把這個路徑對外擋成 404 了，而
+          # Prometheus 和 backend 在同一個 Docker 網路裡，本來就不需要繞出去。
+          #
+          # backend 這個名稱會被 Docker DNS 解析成三個節點的 IP，Prometheus 每次
+          # 只會連上其中一個。這裡不需要在意是哪一個：指標存在共用的 Redis，
+          # 三個節點回傳的數字完全一樣。
+          #
+          # 反過來說，這也是為什麼「同時抓三個節點」是錯的 —— 那會把每個數字乘以三。
+          # 這個限制的根源是 5.3 選擇了共用儲存，代價就是失去每節點的分項。
+          - targets: ["backend:80"]
+
+    - job_name: prometheus
+      static_configs:
+          - targets: ["localhost:9090"]

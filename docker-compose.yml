@@ -154,6 +154,42 @@ services:
             timeout: 5s
             retries: 10
 
+    prometheus:
+        image: prom/prometheus:v3.1.0
+        restart: unless-stopped
+        ports:
+            - "9090:9090"
+        volumes:
+            - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+            - prometheus_data:/prometheus
+        depends_on:
+            # 抓取目標不存在時 Prometheus 不會失敗，只會安靜地記錄 up=0。等節點就緒
+            # 才啟動，是為了讓「圖上一開始那段沒有資料」不必再解釋一次。
+            backend:
+                condition: service_healthy
+
+    grafana:
+        image: grafana/grafana:11.5.1
+        restart: unless-stopped
+        ports:
+            - "3000:3000"
+        environment:
+            # 本機示範用：免登入，截圖時不必先打帳密。正式環境絕不可以這樣設 ——
+            # 儀表板會說出流量規模、錯誤率、系統拓撲。
+            GF_AUTH_ANONYMOUS_ENABLED: "true"
+            GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+            GF_AUTH_DISABLE_LOGIN_FORM: "true"
+            GF_USERS_DEFAULT_THEME: light
+        volumes:
+            # 資料來源與儀表板都用檔案供給，不在介面上點。手動設定的儀表板進不了
+            # 版控，也就回答不了「當初那張圖是怎麼畫出來的」—— 而截圖放進 README
+            # 之後，那正是別人會問的問題。
+            - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+            - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+            - grafana_data:/var/lib/grafana
+        depends_on:
+            - prometheus
+
     # 本機用的真 SMTP 伺服器，收到的信可以在 http://localhost:8025 看。
     # 用它而不是 MAIL_MAILER=log，是因為 log driver 寫檔案是微秒級的 —— 那樣
     # 「把寄信搬離請求路徑」的效益會淹沒在雜訊裡，量不出東西來。
@@ -172,3 +208,5 @@ volumes:
     mysql_data:
     storage_data:
     redis_data:
+    prometheus_data:
+    grafana_data:

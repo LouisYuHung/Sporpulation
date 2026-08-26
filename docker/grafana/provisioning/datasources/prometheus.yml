@@ -1,0 +1,19 @@
+apiVersion: 1
+
+# 用檔案而不是在介面上點。手動設定的儀表板無法進版控，也就無法回答「當初那張圖
+# 是怎麼畫出來的」—— 而截圖放進 README 之後，那正是別人會問的問題。
+datasources:
+    - name: Prometheus
+      # uid 寫死，儀表板才引用得到。留給 Grafana 自動產生的話，儀表板 JSON 裡就得
+      # 填一個每次部署都可能不同的值 —— 症狀是所有面板都顯示「找不到資料來源」。
+      uid: prometheus
+      type: prometheus
+      access: proxy
+      url: http://prometheus:9090
+      isDefault: true
+      # 讓 provisioning 每次啟動都覆寫，避免有人在介面上改過之後兩邊不一致。
+      editable: false
+      jsonData:
+          # 和 prometheus.yml 的 scrape_interval 一致。填錯會讓 Grafana 自動選的
+          # rate() 區間對不上實際的取樣密度，圖上會出現莫名的鋸齒。
+          timeInterval: 5s

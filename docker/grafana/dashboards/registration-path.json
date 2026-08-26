@@ -1,0 +1,128 @@
+{
+    "uid": "sporpulation-registration",
+    "title": "Sporpulation — 報名路徑",
+    "tags": ["sporpulation"],
+    "timezone": "browser",
+    "schemaVersion": 39,
+    "version": 1,
+    "editable": false,
+    "refresh": "5s",
+    "time": { "from": "now-15m", "to": "now" },
+    "panels": [
+        {
+            "type": "timeseries",
+            "title": "報名結局（每秒）",
+            "description": "rate() 而不是原始的計數器：計數器只增不減，直接畫出來只會是一條往右上的直線。rate 把它變成「現在發生得多快」，而且會自動處理計數器歸零（部署、Redis 重啟）。",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 9, "w": 12, "x": 0, "y": 0 },
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "reqps",
+                    "min": 0,
+                    "custom": { "fillOpacity": 20, "lineWidth": 2, "stacking": { "mode": "normal" } }
+                },
+                "overrides": []
+            },
+            "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["max", "sum"] } },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "sum by (outcome) (rate(sporpulation_registration_attempts_total[30s]))",
+                    "legendFormat": "{{outcome}}"
+                }
+            ]
+        },
+        {
+            "type": "timeseries",
+            "title": "佔名額耗時分位數",
+            "description": "從直方圖的桶算出來的，不是平均值。平均值會把「大部分很快、少數很慢」畫成「都還好」，而使用者感受到的是那少數。桶的上界只到 5 秒，所以超過 5 秒的觀測會讓 p99 停在上界 —— 那時候要調的是桶，不是結論。",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 9, "w": 12, "x": 12, "y": 0 },
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "s",
+                    "min": 0,
+                    "custom": { "fillOpacity": 0, "lineWidth": 2 }
+                },
+                "overrides": []
+            },
+            "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "histogram_quantile(0.50, sum by (le) (rate(sporpulation_seat_claim_duration_seconds_bucket[30s])))",
+                    "legendFormat": "p50"
+                },
+                {
+                    "refId": "B",
+                    "expr": "histogram_quantile(0.95, sum by (le) (rate(sporpulation_seat_claim_duration_seconds_bucket[30s])))",
+                    "legendFormat": "p95"
+                },
+                {
+                    "refId": "C",
+                    "expr": "histogram_quantile(0.99, sum by (le) (rate(sporpulation_seat_claim_duration_seconds_bucket[30s])))",
+                    "legendFormat": "p99"
+                }
+            ]
+        },
+        {
+            "type": "timeseries",
+            "title": "佇列積壓",
+            "description": "抓取當下直接問 Redis 有幾個等待中的工作，不是入列 +1、處理完 -1 —— 後者只要漏掉一次遞減就永遠錯下去。積壓持續往上代表 worker 追不上，那是該加 worker 的訊號。",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 8, "w": 8, "x": 0, "y": 9 },
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "short",
+                    "min": 0,
+                    "custom": { "fillOpacity": 30, "lineWidth": 2 }
+                },
+                "overrides": []
+            },
+            "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+            "targets": [
+                { "refId": "A", "expr": "sporpulation_queue_backlog", "legendFormat": "等待中" }
+            ]
+        },
+        {
+            "type": "barchart",
+            "title": "累計結局",
+            "description": "同一場壓測的絕對筆數。速率圖回答「當下多快」，這張回答「總共幾筆」——「零超賣」這種主張要看的是後者。",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 8, "w": 8, "x": 8, "y": 9 },
+            "fieldConfig": {
+                "defaults": { "unit": "short", "min": 0 },
+                "overrides": []
+            },
+            "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "xTickLabelRotation": 0 },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "sum by (outcome) (sporpulation_registration_attempts_total)",
+                    "legendFormat": "{{outcome}}",
+                    "instant": true
+                }
+            ]
+        },
+        {
+            "type": "timeseries",
+            "title": "抓取是否成功（up）",
+            "description": "/metrics 刻意不吞例外：回一份殘缺的指標配 200，Prometheus 會認為抓取成功、圖表只是數字變小 —— 那是最難察覺的故障。讓它 500，這條線就會掉到 0，那是可以告警的訊號。",
+            "datasource": { "type": "prometheus", "uid": "prometheus" },
+            "gridPos": { "h": 8, "w": 8, "x": 16, "y": 9 },
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "short",
+                    "min": 0,
+                    "max": 1,
+                    "custom": { "fillOpacity": 20, "lineWidth": 2 }
+                },
+                "overrides": []
+            },
+            "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+            "targets": [
+                { "refId": "A", "expr": "up{job=\"sporpulation\"}", "legendFormat": "{{instance}}" }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,12 @@
+apiVersion: 1
+
+providers:
+    - name: sporpulation
+      orgId: 1
+      type: file
+      # 不允許從介面刪掉：儀表板的真相在 git 裡，介面只是它的呈現。
+      disableDeletion: true
+      allowUiUpdates: false
+      options:
+          path: /var/lib/grafana/dashboards
+          foldersFromFilesStructure: false
