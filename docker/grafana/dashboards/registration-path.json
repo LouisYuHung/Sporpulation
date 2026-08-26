@@ -94,13 +94,27 @@
                 "defaults": { "unit": "short", "min": 0 },
                 "overrides": []
             },
-            "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "xTickLabelRotation": 0 },
+            "options": {
+                "legend": { "displayMode": "list", "placement": "bottom" },
+                "xTickLabelRotation": 0,
+                "xField": "outcome"
+            },
             "targets": [
                 {
                     "refId": "A",
                     "expr": "sum by (outcome) (sporpulation_registration_attempts_total)",
                     "legendFormat": "{{outcome}}",
-                    "instant": true
+                    "instant": true,
+                    "format": "table"
+                }
+            ],
+            "transformations": [
+                {
+                    "id": "organize",
+                    "options": {
+                        "excludeByName": { "Time": true },
+                        "renameByName": { "Value": "筆數" }
+                    }
                 }
             ]
         },
