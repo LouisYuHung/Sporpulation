@@ -25,6 +25,7 @@ abstract class TestCase extends BaseTestCase
         try {
             Redis::connection('idempotency')->flushdb();
             Redis::connection('metrics')->flushdb();
+            Redis::connection('gate')->flushdb();
         } catch (Throwable) {
             // 沒有 Redis 也要能跑其他測試。需要 Redis 的測試各自會 skip。
         }

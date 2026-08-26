@@ -229,6 +229,25 @@ return [
             'backoff_base' => env('REDIS_BACKOFF_BASE', 100),
             'backoff_cap' => env('REDIS_BACKOFF_CAP', 1000),
         ],
+
+        // 入場閘門。又是一個獨立的 db，理由和前兩個一樣：生命週期不同，而且
+        // FLUSHDB 的波及範圍要分得開。
+        //
+        // 這一份資料的特別之處是它「可以被整個刪掉」而不影響正確性 —— 閘門消失
+        // 只代表削峰失效，所有請求會直接打到 MySQL，而 MySQL 本來就擋得住。
+        // 前面兩個 db 都沒有這個性質。
+        'gate' => [
+            'url' => env('REDIS_URL'),
+            'host' => env('REDIS_HOST', '127.0.0.1'),
+            'username' => env('REDIS_USERNAME'),
+            'password' => env('REDIS_PASSWORD'),
+            'port' => env('REDIS_PORT', '6379'),
+            'database' => env('REDIS_GATE_DB', '4'),
+            'max_retries' => env('REDIS_MAX_RETRIES', 3),
+            'backoff_algorithm' => env('REDIS_BACKOFF_ALGORITHM', 'decorrelated_jitter'),
+            'backoff_base' => env('REDIS_BACKOFF_BASE', 100),
+            'backoff_cap' => env('REDIS_BACKOFF_CAP', 1000),
+        ],
     ],
 
 ];
