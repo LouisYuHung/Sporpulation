@@ -3,6 +3,7 @@
 use App\Exceptions\ConflictException;
 use App\Exceptions\ResourceNotFoundException;
 use App\Exceptions\TooManyRequestsException;
+use App\Http\Middleware\AssignRequestId;
 use App\Http\Middleware\EnsureIdempotentRequest;
 use App\Http\Middleware\SetLocale;
 use App\Http\Middleware\ThrottleRegistration;
@@ -33,6 +34,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // 具有較高的執行優先序，否則會先跑；而未匹配的路由更是根本不會進入群組 -
         // 這兩種情況都會導致錯誤訊息用錯語系呈現。
         $middleware->prepend(SetLocale::class);
+
+        // 排在 SetLocale 前面（prepend 會插到最前，所以後呼叫的反而更早執行）。
+        // 必須是第一個 —— 在它之前寫的任何一行 log 都不會帶 request id，而最早的
+        // 那幾行往往正是出事時最想看的。
+        $middleware->prepend(AssignRequestId::class);
 
         // 以路由為單位選擇啟用而非全域套用：只有值得保護的寫入才需要付出額外的
         // 往返成本。
