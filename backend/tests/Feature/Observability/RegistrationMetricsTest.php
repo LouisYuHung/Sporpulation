@@ -91,10 +91,15 @@ class RegistrationMetricsTest extends TestCase
     /**
      * 搶輸的請求正是延遲最有可能異常的一群。只在成功之後才記錄，會讓圖表在最需要
      * 它的時候變得好看 —— 所以 controller 用的是 finally。
+     *
+     * 這裡把入場閘門關掉，否則搶輸的人在閘門就被削掉、根本進不到計時區段。要驗的是
+     * finally 這個性質本身，不是閘門開著時的行為（那個由下面那支測試負責）。
      */
     #[Test]
     public function the_seat_claim_is_timed_for_winners_and_losers_alike(): void
     {
+        config(['gate.enabled' => false]);
+
         $activity = Activity::factory()->withCapacity(1)->create();
 
         $this->join($activity, User::factory()->create())->assertCreated();
@@ -102,6 +107,26 @@ class RegistrationMetricsTest extends TestCase
 
         $this->assertMetric('sporpulation_seat_claim_duration_seconds_count{outcome="granted"} 1');
         $this->assertMetric('sporpulation_seat_claim_duration_seconds_count{outcome="rejected"} 1');
+    }
+
+    /**
+     * 閘門開著時的同一個情境：搶輸的人被削在資料庫之前，所以他**不該**出現在
+     * 佔名額的耗時分佈裡 —— 他根本沒有佔過名額。
+     *
+     * 這支測試存在的意義是把這個行為變化寫下來。上面那支加了 gate.enabled => false
+     * 才留得住，如果沒有這一支，那行 config 看起來就只像是為了讓測試變綠。
+     */
+    #[Test]
+    public function a_shed_attempt_is_not_timed_because_it_never_reached_the_database(): void
+    {
+        $activity = Activity::factory()->withCapacity(1)->create();
+
+        $this->join($activity, User::factory()->create())->assertCreated();
+        $this->join($activity, User::factory()->create())->assertStatus(409);
+
+        $this->assertMetric('sporpulation_gate_decisions_total{decision="shed"} 1');
+        $this->assertMetric('sporpulation_seat_claim_duration_seconds_count{outcome="granted"} 1');
+        $this->assertMetricMissing('sporpulation_seat_claim_duration_seconds_count{outcome="rejected"}');
     }
 
     /**

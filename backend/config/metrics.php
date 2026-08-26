@@ -63,6 +63,12 @@ return [
             'buckets' => [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5],
         ],
 
+        'gate_decisions_total' => [
+            'type' => 'counter',
+            'help' => '入場閘門的判斷結果。shed 就是被削掉、連 SQL 都沒產生的那些。',
+            'labels' => ['decision'],
+        ],
+
         'confirmation_mail_total' => [
             'type' => 'counter',
             'help' => '確認信 Job 的結果。',

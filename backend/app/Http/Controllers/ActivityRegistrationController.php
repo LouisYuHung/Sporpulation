@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Enums\RegistrationStatus;
+use App\Exceptions\ActivityFullException;
+use App\Gate\GateDecision;
+use App\Gate\SeatGate;
 use App\Http\Resources\ActivityRegistrationResource;
 use App\Http\Resources\ActivityResource;
 use App\Jobs\SendRegistrationConfirmation;
@@ -12,6 +15,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Validation\Rule;
+use Throwable;
 
 class ActivityRegistrationController extends Controller
 {
@@ -46,20 +50,44 @@ class ActivityRegistrationController extends Controller
      * 具冪等性：重送同一個請求會回傳同一個活動與同樣的 joined_count，因為報名紀錄
      * 本身是以 (activity_id, user_id) 為鍵。活動額滿或已開始時回應 409。
      */
-    public function store(Request $request, Activity $activity, MetricRegistry $metrics): JsonResponse
-    {
-        // 只量 join() 這一段，不量整個請求。整個請求的耗時 nginx 的存取紀錄已經
-        // 有了；這裡要看的是「搶名額那個條件式 UPDATE 在壓力下變多慢」，那是
-        // nginx 看不到、也是唯一真正跟併發有關的一段。
+    public function store(
+        Request $request,
+        Activity $activity,
+        MetricRegistry $metrics,
+        SeatGate $gate,
+    ): JsonResponse {
+        $decision = $gate->admit($activity);
+
+        $metrics->increment('gate_decisions_total', ['decision' => $decision->value]);
+
+        // 這一行就是削峰：被擋下的請求連一句 SQL 都不會產生。
+        //
+        // 丟的是同一個 ActivityFullException —— 對使用者來說結果一模一樣，
+        // 「誰擋的」是內部細節，只存在於指標裡。
+        if ($decision === GateDecision::Shed) {
+            throw new ActivityFullException;
+        }
+
+        // 量測放在閘門之後：被削掉的請求根本沒碰到名額，混進這個分佈會讓 p99 被
+        // 一堆「其實什麼都沒做」的極快回應拉低。
         $startedAt = hrtime(true);
         $outcome = 'rejected';
 
         try {
             $registration = $activity->join($request->user());
             $outcome = 'granted';
+        } catch (Throwable $e) {
+            // 沒佔到名額就把預扣的 token 還回去。
+            //
+            // 少還一次，閘門就永遠比實際嚴格一格，而那一格會持續誤殺使用者直到
+            // 閘門過期為止 —— 中間不會有任何錯誤訊息。這是整個 M6 最容易出錯、
+            // 也最難察覺的地方。
+            if ($decision->consumedToken()) {
+                $gate->release($activity);
+            }
+
+            throw $e;
         } finally {
-            // finally 而不是在成功之後才記：搶輸的那些請求正是延遲最有可能異常的
-            // 一群，把它們排除掉會讓圖表在最需要它的時候變得好看。
             $metrics->observe(
                 'seat_claim_duration_seconds',
                 ['outcome' => $outcome],
@@ -81,6 +109,8 @@ class ActivityRegistrationController extends Controller
     {
         $activity->cancel($request->user());
 
+        // 閘門的歸還在 Activity::releaseSeat() 裡 —— 那是 joined_count 真正減少的
+        // 那一行，也是唯一能保證「不論誰呼叫都會通知閘門」的位置。
         return $this->activity($request, $activity);
     }
 

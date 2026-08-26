@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\RegistrationStatus;
 use App\Exceptions\ActivityClosedException;
 use App\Exceptions\ActivityFullException;
+use App\Gate\SeatGate;
 use Database\Factories\ActivityFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -296,8 +297,24 @@ class Activity extends Model
      */
     private function releaseSeat(): void
     {
-        static::whereKey($this->id)
+        $released = static::whereKey($this->id)
             ->where('joined_count', '>', 0)
             ->decrement('joined_count');
+
+        if ($released === 0) {
+            return;
+        }
+
+        // 名額回到池子裡，閘門也要知道。
+        //
+        // 為什麼歸還可以放在這裡（交易內），而佔用不行：這一側萬一多做了 ——
+        // 交易後來 rollback、或同一個名額被還兩次 —— 閘門會變得比實際寬鬆，
+        // 多放幾個請求進 MySQL，被條件式 UPDATE 擋下，無害。佔用那一側多做了
+        // 則是變嚴格，那會誤殺使用者。兩個方向的後果不對稱，擺放位置因此也不對稱。
+        //
+        // 放在模型而不是 controller，是因為任何釋出名額的呼叫端都必須通知閘門。
+        // 壓測指令、console、未來的程式碼都直接呼叫模型 —— 漏掉一條路徑就是
+        // 「明明有位子卻報不進去」，而且不會有任何錯誤訊息。
+        app(SeatGate::class)->release($this);
     }
 }
