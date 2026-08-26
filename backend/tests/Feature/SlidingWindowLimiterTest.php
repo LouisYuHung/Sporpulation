@@ -44,9 +44,12 @@ class SlidingWindowLimiterTest extends TestCase
         $this->assertTrue($decisions[2]->allowed);
         $this->assertFalse($decisions[3]->allowed, '第 4 次應該被擋下');
 
-        // remaining 一路遞減到 0。
+        // 兩個端點釘住 off-by-one：第一次通過回 2 不是 3（remaining 是「扣掉這次
+        // 之後」），最後一次放行回 0 不是 1（回 1 會害呼叫端以為還能再來一次）。
         $this->assertSame(2, $decisions[0]->remaining);
         $this->assertSame(0, $decisions[2]->remaining);
+        // 被擋下時走的是另一條分支，那裡的 remaining 是寫死的，也要驗。
+        $this->assertSame(0, $decisions[3]->remaining);
     }
 
     #[Test]
